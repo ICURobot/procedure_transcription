@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Procedure Dictation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .prose-custom {
+            max-width: none;
+        }
+        .prose-custom h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .prose-custom p {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+        .prose-custom ul {
+            list-style-position: inside;
+            padding-left: 0;
+        }
+        .prose-custom li {
+            margin-bottom: 0.5rem;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-4xl mx-auto p-4 md:p-8">
+        <!-- Screen 1: Procedure Selection -->
+        <div id="selection-screen">
+            <div class="text-center">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Procedure Dictation</h1>
+                <p class="text-lg text-gray-600 mb-8">Choose your procedure to begin dictation.</p>
+            </div>
+            <div id="procedure-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Procedure buttons will be injected here -->
+            </div>
+        </div>
+
+        <!-- Screen 2: Transcription -->
+        <div id="transcription-screen" class="hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900" id="procedure-title"></h2>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full bg-red-500 animate-pulse"></div>
+                        <span class="text-red-500 font-semibold">Recording</span>
+                    </div>
+                </div>
+                <div id="transcription-output" class="h-64 overflow-y-auto p-4 bg-gray-100 rounded-md mb-4 border border-gray-200">
+                    <p class="text-gray-500 italic">Listening... say something.</p>
+                </div>
+                <button id="finish-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                    Finish & Process Notes
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen 3: Summary -->
+        <div id="summary-screen" class="hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center" id="summary-title"></h2>
+                <div id="loading-indicator" class="flex flex-col items-center justify-center my-8 hidden">
+                    <div class="loader mb-4"></div>
+                    <p class="text-gray-600">Processing your notes with AI... Please wait.</p>
+                </div>
+                <div id="results-container" class="prose prose-custom">
+                    <div id="final-notes-container">
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Procedure Notes</h3>
+                        <div id="final-notes" class="whitespace-pre-wrap p-4 bg-gray-50 rounded-md"></div>
+                    </div>
+                    <div id="medication-summary-container" class="mt-8">
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Medication Summary</h3>
+                        <div id="medication-summary" class="p-4 bg-gray-50 rounded-md"></div>
+                    </div>
+                </div>
+                 <button id="restart-button" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                    Start New Procedure
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const selectionScreen = document.getElementById('selection-screen');
+            const transcriptionScreen = document.getElementById('transcription-screen');
+            const summaryScreen = document.getElementById('summary-screen');
+            const procedureList = document.getElementById('procedure-list');
+            const procedureTitle = document.getElementById('procedure-title');
+            const transcriptionOutput = document.getElementById('transcription-output');
+            const finishButton = document.getElementById('finish-button');
+            const summaryTitle = document.getElementById('summary-title');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const resultsContainer = document.getElementById('results-container');
+            const finalNotes = document.getElementById('final-notes');
+            const medicationSummary = document.getElementById('medication-summary');
+            const restartButton = document.getElementById('restart-button');
+
+            // --- App State ---
+            let recognition;
+            let transcriptionLog = [];
+            let currentProcedure = '';
+
+            const procedures = [
+                'Transesophageal Echo',
+                'Cardioversion',
+                'TEE Guided Cardioversion',
+                'Stress Test',
+                'Stress Echo',
+                'Dobutamine Echo'
+            ];
+
+            // --- Speech Recognition Setup ---
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US';
+
+                recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript.trim() + '. ';
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+                    
+                    if (finalTranscript) {
+                         const timestamp = new Date();
+                         const logEntry = {
+                            time: timestamp,
+                            note: finalTranscript.charAt(0).toUpperCase() + finalTranscript.slice(1)
+                         };
+                         transcriptionLog.push(logEntry);
+                         updateTranscriptionDisplay();
+                    }
+                };
+                
+                recognition.onerror = (event) => {
+                    console.error("Speech recognition error:", event.error);
+                    if (event.error === 'no-speech' || event.error === 'network') {
+                        // Automatically restart recognition on common, recoverable errors
+                        recognition.stop();
+                        setTimeout(() => recognition.start(), 100);
+                    }
+                };
+
+            } else {
+                alert("Sorry, your browser does not support speech recognition. Please try Google Chrome.");
+            }
+            
+            // --- Functions ---
+
+            function initialize() {
+                procedures.forEach(proc => {
+                    const button = document.createElement('button');
+                    button.className = "bg-white hover:bg-blue-100 text-blue-700 font-semibold py-4 px-4 border border-blue-300 rounded-lg shadow-sm transition duration-300";
+                    button.textContent = proc;
+                    button.onclick = () => startProcedure(proc);
+                    procedureList.appendChild(button);
+                });
+            }
+
+            function startProcedure(proc) {
+                currentProcedure = proc;
+                transcriptionLog = [];
+                procedureTitle.textContent = currentProcedure;
+                summaryTitle.textContent = `${currentProcedure} Summary`;
+                
+                selectionScreen.classList.add('hidden');
+                summaryScreen.classList.add('hidden');
+                transcriptionScreen.classList.remove('hidden');
+
+                transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Starting session...</p>';
+                
+                if (recognition) {
+                    recognition.start();
+                }
+            }
+
+            function updateTranscriptionDisplay() {
+                if (transcriptionLog.length === 0) {
+                     transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
+                     return;
+                }
+                
+                transcriptionOutput.innerHTML = '';
+                transcriptionLog.forEach(log => {
+                    const p = document.createElement('p');
+                    const timeString = log.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    p.innerHTML = `<strong class="text-blue-600">[${timeString}]</strong>: ${log.note}`;
+                    transcriptionOutput.appendChild(p);
+                });
+                transcriptionOutput.scrollTop = transcriptionOutput.scrollHeight;
+            }
+
+            async function finishProcedure() {
+                if (recognition) {
+                    recognition.stop();
+                }
+
+                transcriptionScreen.classList.add('hidden');
+                summaryScreen.classList.remove('hidden');
+                loadingIndicator.classList.remove('hidden');
+                resultsContainer.classList.add('hidden');
+
+                const rawTranscript = transcriptionLog.map(log => `[${log.time.toISOString()}] ${log.note}`).join('\n');
+
+                try {
+                    const aiResponse = await processWithAI(rawTranscript);
+                    displayResults(aiResponse);
+                } catch (error) {
+                    console.error("Error processing with AI:", error);
+                    finalNotes.textContent = "An error occurred while processing your notes. Please try again.";
+                    medicationSummary.textContent = "Could not be generated.";
+                } finally {
+                    loadingIndicator.classList.add('hidden');
+                    resultsContainer.classList.remove('hidden');
+                }
+            }
+            
+            async function processWithAI(text) {
+                // This is where you would call the Gemini API
+                console.log("Sending to AI for processing:\n", text);
+                const prompt = `
+                    You are an expert medical scribe. Your task is to process a raw, timestamped transcript from a medical procedure named "${currentProcedure}" and organize it.
+
+                    The raw transcript is as follows:
+                    ---
+                    ${text}
+                    ---
+
+                    Based on this transcript, perform the following tasks:
+
+                    1.  **Clean and Organize Procedure Notes:** Review the entire transcript. Correct any obvious speech-to-text errors, especially for medical terminology. Format the notes chronologically. The output should be a clear, easy-to-read log of the procedure. Do not include the timestamps in the final notes, but maintain the chronological order.
+
+                    2.  **Summarize Medications:** Identify every medication administered. For each medication, list its name and the time it was mentioned.
+
+                    Please provide the output in a JSON format with two keys: "procedureNotes" and "medicationSummary".
+
+                    - "procedureNotes" should be a single string with paragraphs or line breaks for readability.
+                    - "medicationSummary" should be an array of objects, where each object has "medication" and "time" keys. The time should be the full timestamp from the transcript.
+                `;
+
+                // --- MOCK API RESPONSE (for demonstration without a real API key) ---
+                // In a real application, you would replace this with a fetch call to the Gemini API
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        // Example logic to simulate AI processing
+                        const notes = transcriptionLog.map(log => log.note).join('\n');
+                        const meds = [];
+                        transcriptionLog.forEach(log => {
+                            const lowerNote = log.note.toLowerCase();
+                            if (lowerNote.includes('lidocaine')) {
+                                meds.push({ medication: 'Lidocaine', time: log.time.toLocaleTimeString() });
+                            }
+                            if (lowerNote.includes('propofol')) {
+                                meds.push({ medication: 'Propofol', time: log.time.toLocaleTimeString() });
+                            }
+                             if (lowerNote.includes('heparin')) {
+                                meds.push({ medication: 'Heparin', time: log.time.toLocaleTimeString() });
+                            }
+                        });
+
+                        const mockResponse = {
+                            procedureNotes: `Patient underwent a ${currentProcedure}. The procedure was initiated and vital signs remained stable throughout. ${notes}`,
+                            medicationSummary: meds
+                        };
+                        console.log("Mock AI Response:", mockResponse);
+                        resolve(mockResponse);
+                    }, 2500); // Simulate network delay
+                });
+            }
+
+            function displayResults(data) {
+                // Display Procedure Notes
+                finalNotes.textContent = data.procedureNotes || "No procedure notes were generated.";
+
+                // Display Medication Summary
+                medicationSummary.innerHTML = '';
+                if (data.medicationSummary && data.medicationSummary.length > 0) {
+                    const ul = document.createElement('ul');
+                    ul.className = 'list-disc pl-5';
+                    data.medicationSummary.forEach(med => {
+                        const li = document.createElement('li');
+                        li.textContent = `${med.medication} (administered around ${med.time})`;
+                        ul.appendChild(li);
+                    });
+                    medicationSummary.appendChild(ul);
+                } else {
+                    medicationSummary.textContent = "No medications were mentioned in the transcript.";
+                }
+            }
+            
+            function restartApp() {
+                selectionScreen.classList.remove('hidden');
+                transcriptionScreen.classList.add('hidden');
+                summaryScreen.classList.add('hidden');
+                transcriptionLog = [];
+                currentProcedure = '';
+            }
+
+            // --- Event Listeners ---
+            finishButton.addEventListener('click', finishProcedure);
+            restartButton.addEventListener('click', restartApp);
+
+            // --- Initialize App ---
+            initialize();
+        });
+    </script>
+
+</body>
+</html>
