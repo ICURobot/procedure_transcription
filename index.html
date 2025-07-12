@@ -137,18 +137,14 @@
             if (SpeechRecognition) {
                 recognition = new SpeechRecognition();
                 recognition.continuous = true;
-                recognition.interimResults = true;
+                recognition.interimResults = false; // Set to false to get cleaner final results
                 recognition.lang = 'en-US';
 
                 recognition.onresult = (event) => {
-                    let interimTranscript = '';
                     let finalTranscript = '';
-
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
                         if (event.results[i].isFinal) {
                             finalTranscript += event.results[i][0].transcript.trim() + '. ';
-                        } else {
-                            interimTranscript += event.results[i][0].transcript;
                         }
                     }
                     
@@ -165,15 +161,40 @@
                 
                 recognition.onerror = (event) => {
                     console.error("Speech recognition error:", event.error);
-                    if (event.error === 'no-speech' || event.error === 'network') {
-                        // Automatically restart recognition on common, recoverable errors
-                        recognition.stop();
-                        setTimeout(() => recognition.start(), 100);
+                     // More robust restart logic
+                    if (recognition) {
+                        try {
+                            recognition.stop();
+                        } catch (e) {
+                            console.error("Error stopping recognition:", e);
+                        }
+                        setTimeout(() => {
+                            try {
+                                recognition.start();
+                            } catch (e) {
+                                console.error("Error restarting recognition:", e);
+                            }
+                        }, 500);
                     }
                 };
 
+                recognition.onend = () => {
+                    // When recognition ends (e.g., due to silence), restart it if we are still on the transcription screen
+                    if (!transcriptionScreen.classList.contains('hidden')) {
+                         setTimeout(() => {
+                            try {
+                                recognition.start();
+                            } catch(e) {
+                                console.log("Recognition already started");
+                            }
+                        }, 250); // Small delay
+                    }
+                };
+
+
             } else {
-                alert("Sorry, your browser does not support speech recognition. Please try Google Chrome.");
+                // Use a proper modal or on-page message instead of alert
+                transcriptionOutput.innerHTML = '<p class="text-red-500 font-bold">Sorry, your browser does not support speech recognition. Please try Google Chrome.</p>';
             }
             
             // --- Functions ---
@@ -201,7 +222,11 @@
                 transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Starting session...</p>';
                 
                 if (recognition) {
-                    recognition.start();
+                    try {
+                        recognition.start();
+                    } catch(e) {
+                        console.error("Recognition could not be started:", e);
+                    }
                 }
             }
 
@@ -238,7 +263,7 @@
                     displayResults(aiResponse);
                 } catch (error) {
                     console.error("Error processing with AI:", error);
-                    finalNotes.textContent = "An error occurred while processing your notes. Please try again.";
+                    finalNotes.textContent = "An error occurred while processing your notes. Please check the console for details.";
                     medicationSummary.textContent = "Could not be generated.";
                 } finally {
                     loadingIndicator.classList.add('hidden');
@@ -247,10 +272,9 @@
             }
             
             async function processWithAI(text) {
-                // This is where you would call the Gemini API
-                console.log("Sending to AI for processing:\n", text);
+                console.log("Sending to Gemini for processing:\n", text);
                 const prompt = `
-                    You are an expert medical scribe. Your task is to process a raw, timestamped transcript from a medical procedure named "${currentProcedure}" and organize it.
+                    You are an expert medical scribe specializing in cardiology procedures. Your task is to process a raw, timestamped transcript from a medical procedure named "${currentProcedure}" and organize it into a formal report.
 
                     The raw transcript is as follows:
                     ---
@@ -259,45 +283,70 @@
 
                     Based on this transcript, perform the following tasks:
 
-                    1.  **Clean and Organize Procedure Notes:** Review the entire transcript. Correct any obvious speech-to-text errors, especially for medical terminology. Format the notes chronologically. The output should be a clear, easy-to-read log of the procedure. Do not include the timestamps in the final notes, but maintain the chronological order.
+                    1.  **Clean and Organize Procedure Notes:** Review the entire transcript. Correct speech-to-text errors (e.g., "fishing" should be "pushing", "Lido" should be "lidocaine"). Convert the dictation into a coherent, professional narrative summarizing the procedure. Maintain the chronological order of events. Do not include the timestamps in the final notes.
 
-                    2.  **Summarize Medications:** Identify every medication administered. For each medication, list its name and the time it was mentioned.
+                    2.  **Summarize Medications:** Identify every medication administered, including dosage if mentioned. For each medication, list its name and the exact time it was administered based on the timestamp in the transcript.
 
-                    Please provide the output in a JSON format with two keys: "procedureNotes" and "medicationSummary".
+                    Please provide the output in a strict JSON format. Do not include any text before or after the JSON object.
 
-                    - "procedureNotes" should be a single string with paragraphs or line breaks for readability.
-                    - "medicationSummary" should be an array of objects, where each object has "medication" and "time" keys. The time should be the full timestamp from the transcript.
+                    The JSON object must have two keys: "procedureNotes" and "medicationSummary".
+                    - "procedureNotes" must be a single string. Use "\\n" for line breaks.
+                    - "medicationSummary" must be an array of objects. Each object must have "medication" and "time" keys. The time should be the human-readable time (e.g., HH:MM:SS AM/PM) from the transcript's timestamp.
                 `;
 
-                // --- MOCK API RESPONSE (for demonstration without a real API key) ---
-                // In a real application, you would replace this with a fetch call to the Gemini API
-                return new Promise(resolve => {
-                    setTimeout(() => {
-                        // Example logic to simulate AI processing
-                        const notes = transcriptionLog.map(log => log.note).join('\n');
-                        const meds = [];
-                        transcriptionLog.forEach(log => {
-                            const lowerNote = log.note.toLowerCase();
-                            if (lowerNote.includes('lidocaine')) {
-                                meds.push({ medication: 'Lidocaine', time: log.time.toLocaleTimeString() });
-                            }
-                            if (lowerNote.includes('propofol')) {
-                                meds.push({ medication: 'Propofol', time: log.time.toLocaleTimeString() });
-                            }
-                             if (lowerNote.includes('heparin')) {
-                                meds.push({ medication: 'Heparin', time: log.time.toLocaleTimeString() });
-                            }
-                        });
+                const apiKey = ""; // API key will be handled by the environment
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-                        const mockResponse = {
-                            procedureNotes: `Patient underwent a ${currentProcedure}. The procedure was initiated and vital signs remained stable throughout. ${notes}`,
-                            medicationSummary: meds
-                        };
-                        console.log("Mock AI Response:", mockResponse);
-                        resolve(mockResponse);
-                    }, 2500); // Simulate network delay
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                procedureNotes: { type: "STRING" },
+                                medicationSummary: {
+                                    type: "ARRAY",
+                                    items: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            medication: { type: "STRING" },
+                                            time: { type: "STRING" }
+                                        },
+                                        required: ["medication", "time"]
+                                    }
+                                }
+                            },
+                            required: ["procedureNotes", "medicationSummary"]
+                        }
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const jsonText = result.candidates[0].content.parts[0].text;
+                    // The API should return valid JSON because of the schema, so we can parse it directly.
+                    return JSON.parse(jsonText);
+                } else {
+                    console.error("Unexpected API response structure:", result);
+                    throw new Error("Failed to get a valid response from the AI model.");
+                }
             }
+
 
             function displayResults(data) {
                 // Display Procedure Notes
@@ -315,7 +364,7 @@
                     });
                     medicationSummary.appendChild(ul);
                 } else {
-                    medicationSummary.textContent = "No medications were mentioned in the transcript.";
+                    medicationSummary.textContent = "No medications were identified in the transcript.";
                 }
             }
             
