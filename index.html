@@ -240,7 +240,7 @@
                 transcriptionOutput.innerHTML = '';
                 transcriptionLog.forEach(log => {
                     const p = document.createElement('p');
-                    const timeString = log.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const timeString = log.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     p.innerHTML = `<strong class="text-blue-600">[${timeString}]</strong>: ${log.note}`;
                     transcriptionOutput.appendChild(p);
                 });
