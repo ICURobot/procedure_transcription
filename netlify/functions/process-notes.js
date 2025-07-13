@@ -17,9 +17,9 @@ exports.handler = async function(event) {
         }
 
         const prompt = `
-            You are an expert medical scribe specializing in cardiology procedures. Your task is to process a raw, timestamped transcript from a medical procedure named "${procedure}" and organize it into a formal, de-identified report.
+            You are an expert medical scribe specializing in cardiology procedures. Your task is to process a raw, timestamped transcript from a medical procedure named "${procedure}" and organize it into a formal, de-identified report with three distinct sections.
 
-            **PRIVACY INSTRUCTIONS (ABSOLUTELY CRITICAL):** Before performing any other task, you MUST remove all Personally Identifiable Information (PII) from the transcript. This includes, but is not limited to: patient names, specific ages (use general terms like 'adult' or 'elderly' if necessary), specific dates of birth, medical record numbers, and any other unique identifiers. Replace names with generic terms like "the patient". This is a strict requirement for patient privacy.
+            **PRIVACY INSTRUCTIONS (ABSOLUTELY CRITICAL):** Before performing any other task, you MUST remove all Personally Identifiable Information (PII) from the transcript. This includes patient names, specific ages, dates of birth, and medical record numbers. Replace names with "the patient". This is a strict requirement.
 
             **TIMEZONE INSTRUCTIONS (VERY IMPORTANT):** The user is in the "${timezone}" timezone. All timestamps in the raw transcript are in UTC format (ISO 8601). When you extract times for the summaries, you **MUST** convert them from UTC to the user's local timezone ("${timezone}") first, and then format them as HH:MM.
 
@@ -28,17 +28,20 @@ exports.handler = async function(event) {
             ${transcript}
             ---
 
-            Based on this de-identified transcript, perform the following tasks:
+            Based on this de-identified transcript, perform the following three tasks:
 
-            1.  **Clean and Organize Procedure Notes (with Timestamps):** Review the de-identified transcript. Correct speech-to-text errors. Convert the dictation into a clear, timestamped log of events. Each distinct event or observation should start on a new line and **MUST be prefixed with its corresponding local time in HH:MM format.** (e.g., "[14:32] Patient vitals stable.").
+            1.  **Generate Nursing Notes:** Create a comprehensive, chronological, narrative summary of the entire procedure (pre, intra, and post). This section is for nursing charts and should be easy to read. **Do not include any timestamps in this section.**
 
-            2.  **Summarize Medications (Crucial):** From the de-identified transcript, identify every medication administered. For each medication, create an entry listing its name, dosage, and the **exact local time** it was administered. The time is non-negotiable and must be included.
+            2.  **Generate Procedure Log (with Timestamps):** Review the de-identified transcript. Correct speech-to-text errors. Convert the dictation into a clear, timestamped log of events. Each distinct event or observation should start on a new line and **MUST be prefixed with its corresponding local time in HH:MM format.** (e.g., "[14:32] Patient vitals stable.").
+
+            3.  **Summarize Medications (Crucial):** Identify every medication administered. For each medication, create an entry listing its name, dosage, and the **exact local time** it was administered, following the timezone conversion rule. The time is non-negotiable.
 
             Please provide the output in a strict JSON format. Do not include any text before or after the JSON object.
 
-            The JSON object must have two keys: "procedureNotes" and "medicationSummary".
-            - "procedureNotes" must be a single string containing the timestamped log. Use "\\n" for line breaks between entries.
-            - "medicationSummary" must be an array of objects. Each object MUST have "medication" and "time" keys. The "time" key is mandatory and should contain the user's local time in HH:MM format.
+            The JSON object must have three keys: "nursingNotes", "procedureNotes", and "medicationSummary".
+            - "nursingNotes" must be a single string containing the narrative summary.
+            - "procedureNotes" must be a single string containing the timestamped log. Use "\\n" for line breaks.
+            - "medicationSummary" must be an array of objects. Each object MUST have "medication" and "time" keys.
         `;
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -50,6 +53,7 @@ exports.handler = async function(event) {
                 responseSchema: {
                     type: "OBJECT",
                     properties: {
+                        nursingNotes: { type: "STRING" },
                         procedureNotes: { type: "STRING" },
                         medicationSummary: {
                             type: "ARRAY",
@@ -63,7 +67,7 @@ exports.handler = async function(event) {
                             }
                         }
                     },
-                    required: ["procedureNotes", "medicationSummary"]
+                    required: ["nursingNotes", "procedureNotes", "medicationSummary"]
                 }
             }
         };
