@@ -277,11 +277,16 @@
                 console.log("Sending transcript to Netlify Function for processing...");
                 
                 const functionUrl = '/.netlify/functions/process-notes';
+                const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                 const response = await fetch(functionUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ transcript: transcript, procedure: procedure })
+                    body: JSON.stringify({ 
+                        transcript: transcript, 
+                        procedure: procedure,
+                        timezone: userTimezone // Send the user's timezone
+                    })
                 });
 
                 if (!response.ok) {
