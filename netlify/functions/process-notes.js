@@ -17,20 +17,22 @@ exports.handler = async function(event) {
         }
 
         const prompt = `
-            You are an expert medical scribe specializing in cardiology procedures. Your task is to process a raw, timestamped transcript from a medical procedure named "${procedure}" and organize it into a formal report.
+            You are an expert medical scribe specializing in cardiology procedures. Your task is to process a raw, timestamped transcript from a medical procedure named "${procedure}" and organize it into a formal, de-identified report.
 
-            **TIMEZONE INSTRUCTIONS (VERY IMPORTANT):** The user is in the "${timezone}" timezone. All timestamps in the raw transcript are in UTC format (ISO 8601). When you extract times for the summaries, you **MUST** convert them from UTC to the user's local timezone ("${timezone}") first, and then format them as HH:MM. For example, if the user is in "America/New_York" (UTC-4) and the timestamp is "2023-10-27T18:30:00.000Z", the correct local time is "14:30".
+            **PRIVACY INSTRUCTIONS (ABSOLUTELY CRITICAL):** Before performing any other task, you MUST remove all Personally Identifiable Information (PII) from the transcript. This includes, but is not limited to: patient names, specific ages (use general terms like 'adult' or 'elderly' if necessary), specific dates of birth, medical record numbers, and any other unique identifiers. Replace names with generic terms like "the patient". This is a strict requirement for patient privacy.
+
+            **TIMEZONE INSTRUCTIONS (VERY IMPORTANT):** The user is in the "${timezone}" timezone. All timestamps in the raw transcript are in UTC format (ISO 8601). When you extract times for the summaries, you **MUST** convert them from UTC to the user's local timezone ("${timezone}") first, and then format them as HH:MM.
 
             The raw transcript is as follows:
             ---
             ${transcript}
             ---
 
-            Based on this transcript, perform the following tasks:
+            Based on this de-identified transcript, perform the following tasks:
 
-            1.  **Clean and Organize Procedure Notes (with Timestamps):** Review the entire transcript. Correct speech-to-text errors. Convert the dictation into a clear, timestamped log of events. Each distinct event or observation should start on a new line and **MUST be prefixed with its corresponding local time in HH:MM format.** (e.g., "[14:32] Patient vitals stable.").
+            1.  **Clean and Organize Procedure Notes (with Timestamps):** Review the de-identified transcript. Correct speech-to-text errors. Convert the dictation into a clear, timestamped log of events. Each distinct event or observation should start on a new line and **MUST be prefixed with its corresponding local time in HH:MM format.** (e.g., "[14:32] Patient vitals stable.").
 
-            2.  **Summarize Medications (Crucial):** Identify every medication administered, including its dosage if mentioned. For each medication, create an entry listing its name and the **exact local time** it was administered, following the timezone conversion rule above. The time is non-negotiable and must be included.
+            2.  **Summarize Medications (Crucial):** From the de-identified transcript, identify every medication administered. For each medication, create an entry listing its name, dosage, and the **exact local time** it was administered. The time is non-negotiable and must be included.
 
             Please provide the output in a strict JSON format. Do not include any text before or after the JSON object.
 
