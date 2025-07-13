@@ -1,102 +1,345 @@
-// File path: netlify/functions/process-notes.js
-
-// This is the handler for the Netlify Function.
-// It will be triggered when your front-end calls `/.netlify/functions/process-notes`
-exports.handler = async function(event) {
-    // We only accept POST requests
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
-    }
-
-    try {
-        // Get the API key from Netlify's secure environment variables
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error("API key is not set in Netlify environment.");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Procedure Dictation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
         }
-
-        // Parse the data sent from the front-end (the transcript and procedure name)
-        const { transcript, procedure } = JSON.parse(event.body);
-        if (!transcript || !procedure) {
-            return { statusCode: 400, body: 'Missing transcript or procedure name.' };
+        .prose-custom {
+            max-width: none;
         }
+        .prose-custom h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .prose-custom p {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+        .prose-custom ul {
+            list-style-position: inside;
+            padding-left: 0;
+        }
+        .prose-custom li {
+            margin-bottom: 0.5rem;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .copy-button {
+            transition: background-color 0.3s, color 0.3s;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen">
 
-        // The same prompt we used before, now running on the server
-        const prompt = `
-            You are an expert medical scribe specializing in cardiology procedures. Your task is to process a raw, timestamped transcript from a medical procedure named "${procedure}" and organize it into a formal report.
+    <div class="w-full max-w-4xl mx-auto p-4 md:p-8">
+        <!-- Screen 1: Procedure Selection -->
+        <div id="selection-screen">
+            <div class="text-center">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Procedure Dictation</h1>
+                <p class="text-lg text-gray-600 mb-8">Choose your procedure to begin dictation.</p>
+            </div>
+            
+            <div id="procedure-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Procedure buttons will be injected here -->
+            </div>
+        </div>
 
-            The raw transcript is as follows:
-            ---
-            ${transcript}
-            ---
+        <!-- Screen 2: Transcription -->
+        <div id="transcription-screen" class="hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900" id="procedure-title"></h2>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-4 h-4 rounded-full bg-red-500 animate-pulse"></div>
+                        <span class="text-red-500 font-semibold">Recording</span>
+                    </div>
+                </div>
+                <div id="transcription-output" class="h-64 overflow-y-auto p-4 bg-gray-100 rounded-md mb-4 border border-gray-200">
+                    <p class="text-gray-500 italic">Listening... say something.</p>
+                </div>
+                <button id="finish-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                    Finish & Process Notes
+                </button>
+            </div>
+        </div>
 
-            Based on this transcript, perform the following tasks:
+        <!-- Screen 3: Summary -->
+        <div id="summary-screen" class="hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center" id="summary-title"></h2>
+                <div id="loading-indicator" class="flex flex-col items-center justify-center my-8 hidden">
+                    <div class="loader mb-4"></div>
+                    <p id="loading-text" class="text-gray-600">Processing your notes with AI... Please wait.</p>
+                </div>
+                <div id="results-container" class="prose prose-custom">
+                    <div id="final-notes-container">
+                        <div class="flex justify-between items-center border-b pb-2 mb-4">
+                            <h3 class="text-xl font-semibold text-gray-800">Procedure Notes</h3>
+                            <button id="copy-notes-button" class="copy-button bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-md text-sm">Copy</button>
+                        </div>
+                        <div id="final-notes" class="whitespace-pre-wrap p-4 bg-gray-50 rounded-md"></div>
+                    </div>
+                    <div id="medication-summary-container" class="mt-8">
+                         <div class="flex justify-between items-center border-b pb-2 mb-4">
+                            <h3 class="text-xl font-semibold text-gray-800">Medication Summary</h3>
+                            <button id="copy-meds-button" class="copy-button bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-md text-sm">Copy</button>
+                        </div>
+                        <div id="medication-summary" class="p-4 bg-gray-50 rounded-md"></div>
+                    </div>
+                </div>
+                 <button id="restart-button" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                    Start New Procedure
+                </button>
+            </div>
+        </div>
+    </div>
 
-            1.  **Clean and Organize Procedure Notes:** Review the entire transcript. Correct speech-to-text errors (e.g., "fishing" should be "pushing", "Lido" should be "lidocaine", "staples" should be "stable"). Convert the dictation into a coherent, professional narrative summarizing the procedure. Maintain the chronological order of events. Do not include the timestamps in the final notes.
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const selectionScreen = document.getElementById('selection-screen');
+            const transcriptionScreen = document.getElementById('transcription-screen');
+            const summaryScreen = document.getElementById('summary-screen');
+            const procedureList = document.getElementById('procedure-list');
+            const procedureTitle = document.getElementById('procedure-title');
+            const transcriptionOutput = document.getElementById('transcription-output');
+            const finishButton = document.getElementById('finish-button');
+            const summaryTitle = document.getElementById('summary-title');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const loadingText = document.getElementById('loading-text');
+            const resultsContainer = document.getElementById('results-container');
+            const finalNotes = document.getElementById('final-notes');
+            const medicationSummary = document.getElementById('medication-summary');
+            const restartButton = document.getElementById('restart-button');
+            const copyNotesButton = document.getElementById('copy-notes-button');
+            const copyMedsButton = document.getElementById('copy-meds-button');
 
-            2.  **Summarize Medications:** Identify every medication administered, including dosage if mentioned. For each medication, list its name and the exact time it was administered based on the timestamp in the transcript.
+            // --- App State ---
+            let recognition;
+            let transcriptionLog = [];
+            let currentProcedure = '';
 
-            Please provide the output in a strict JSON format. Do not include any text before or after the JSON object.
+            const procedures = [
+                'Transesophageal Echo',
+                'Cardioversion',
+                'TEE Guided Cardioversion',
+                'Stress Test',
+                'Stress Echo',
+                'Dobutamine Echo'
+            ];
 
-            The JSON object must have two keys: "procedureNotes" and "medicationSummary".
-            - "procedureNotes" must be a single string. Use "\\n" for line breaks for readability.
-            - "medicationSummary" must be an array of objects. Each object must have "medication" and "time" keys. The time should be the human-readable time (e.g., HH:MM:SS AM/PM) from the transcript's timestamp.
-        `;
+            // --- Speech Recognition Setup ---
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-        const payload = {
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                        procedureNotes: { type: "STRING" },
-                        medicationSummary: {
-                            type: "ARRAY",
-                            items: {
-                                type: "OBJECT",
-                                properties: {
-                                    medication: { type: "STRING" },
-                                    time: { type: "STRING" }
-                                },
-                                required: ["medication", "time"]
-                            }
+                recognition.onresult = (event) => {
+                    let finalTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript.trim() + '. ';
                         }
-                    },
-                    required: ["procedureNotes", "medicationSummary"]
+                    }
+                    if (finalTranscript) {
+                         const timestamp = new Date();
+                         const logEntry = { time: timestamp, note: finalTranscript.charAt(0).toUpperCase() + finalTranscript.slice(1) };
+                         transcriptionLog.push(logEntry);
+                         updateTranscriptionDisplay();
+                    }
+                };
+                
+                recognition.onerror = (event) => {
+                    console.error("Speech recognition error:", event.error);
+                    if (recognition) {
+                        try { recognition.stop(); } catch (e) {}
+                        setTimeout(() => { try { recognition.start(); } catch (e) {} }, 500);
+                    }
+                };
+
+                recognition.onend = () => {
+                    if (!transcriptionScreen.classList.contains('hidden')) {
+                         setTimeout(() => { try { recognition.start(); } catch(e) {} }, 250);
+                    }
+                };
+            } else {
+                document.getElementById('procedure-list').innerHTML = '<p class="text-red-500 font-bold col-span-full text-center">Sorry, your browser does not support speech recognition. Please try Google Chrome.</p>';
+            }
+            
+            // --- Functions ---
+
+            function initialize() {
+                procedures.forEach(proc => {
+                    const button = document.createElement('button');
+                    button.className = "bg-white hover:bg-blue-100 text-blue-700 font-semibold py-4 px-4 border border-blue-300 rounded-lg shadow-sm transition duration-300";
+                    button.textContent = proc;
+                    button.onclick = () => startProcedure(proc);
+                    procedureList.appendChild(button);
+                });
+            }
+
+            function startProcedure(proc) {
+                currentProcedure = proc;
+                transcriptionLog = [];
+                procedureTitle.textContent = currentProcedure;
+                summaryTitle.textContent = `${currentProcedure} Summary`;
+                
+                selectionScreen.classList.add('hidden');
+                summaryScreen.classList.add('hidden');
+                transcriptionScreen.classList.remove('hidden');
+
+                transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Starting session...</p>';
+                
+                if (recognition) {
+                    try { recognition.start(); } catch(e) { console.error("Recognition could not be started:", e); }
                 }
             }
-        };
-        
-        // Call the Google AI API from the server
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+
+            function updateTranscriptionDisplay() {
+                if (transcriptionLog.length === 0) {
+                     transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
+                     return;
+                }
+                transcriptionOutput.innerHTML = '';
+                transcriptionLog.forEach(log => {
+                    const p = document.createElement('p');
+                    const timeString = log.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    p.innerHTML = `<strong class="text-blue-600">[${timeString}]</strong>: ${log.note}`;
+                    transcriptionOutput.appendChild(p);
+                });
+                transcriptionOutput.scrollTop = transcriptionOutput.scrollHeight;
+            }
+
+            async function finishProcedure() {
+                if (recognition) {
+                    recognition.stop();
+                }
+
+                transcriptionScreen.classList.add('hidden');
+                summaryScreen.classList.remove('hidden');
+                loadingText.textContent = "Processing your notes with AI... Please wait.";
+                loadingIndicator.classList.remove('hidden');
+                resultsContainer.classList.add('hidden');
+
+                const rawTranscript = transcriptionLog.map(log => `[${log.time.toISOString()}] ${log.note}`).join('\n');
+
+                try {
+                    const aiResponse = await processWithAI(rawTranscript, currentProcedure);
+                    displayResults(aiResponse);
+                } catch (error) {
+                    console.error("Error processing with AI:", error);
+                    finalNotes.textContent = `An error occurred while processing your notes. Please check the console for details. Error: ${error.message}`;
+                    medicationSummary.textContent = "Could not be generated.";
+                } finally {
+                    loadingIndicator.classList.add('hidden');
+                    resultsContainer.classList.remove('hidden');
+                }
+            }
+            
+            async function processWithAI(transcript, procedure) {
+                console.log("Sending transcript to Netlify Function for processing...");
+                
+                // The URL for our Netlify function
+                const functionUrl = '/.netlify/functions/process-notes';
+
+                const response = await fetch(functionUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transcript: transcript, procedure: procedure })
+                });
+
+                if (!response.ok) {
+                    const errorResult = await response.json();
+                    throw new Error(`Function request failed: ${errorResult.error || response.statusText}`);
+                }
+                
+                return await response.json();
+            }
+
+            function displayResults(data) {
+                copyNotesButton.textContent = 'Copy';
+                copyMedsButton.textContent = 'Copy';
+
+                finalNotes.textContent = data.procedureNotes || "No procedure notes were generated.";
+                medicationSummary.innerHTML = '';
+                if (data.medicationSummary && data.medicationSummary.length > 0) {
+                    const ul = document.createElement('ul');
+                    ul.className = 'list-disc pl-5';
+                    data.medicationSummary.forEach(med => {
+                        const li = document.createElement('li');
+                        li.textContent = `${med.medication} (administered around ${med.time})`;
+                        ul.appendChild(li);
+                    });
+                    medicationSummary.appendChild(ul);
+                } else {
+                    medicationSummary.textContent = "No medications were identified in the transcript.";
+                }
+            }
+
+            function copyToClipboard(text, button) {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    button.textContent = 'Copied!';
+                    button.classList.add('bg-green-500', 'text-white');
+                    setTimeout(() => {
+                        button.textContent = 'Copy';
+                        button.classList.remove('bg-green-500', 'text-white');
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy text: ', err);
+                    button.textContent = 'Error';
+                }
+                document.body.removeChild(textArea);
+            }
+            
+            function restartApp() {
+                selectionScreen.classList.remove('hidden');
+                transcriptionScreen.classList.add('hidden');
+                summaryScreen.classList.add('hidden');
+                transcriptionLog = [];
+                currentProcedure = '';
+            }
+
+            // --- Event Listeners ---
+            finishButton.addEventListener('click', finishProcedure);
+            restartButton.addEventListener('click', restartApp);
+            copyNotesButton.addEventListener('click', () => {
+                copyToClipboard(finalNotes.textContent, copyNotesButton);
+            });
+            copyMedsButton.addEventListener('click', () => {
+                const medsText = Array.from(medicationSummary.querySelectorAll('li'))
+                                    .map(li => li.textContent)
+                                    .join('\n');
+                copyToClipboard(medsText || medicationSummary.textContent, copyMedsButton);
+            });
+
+            // --- Initialize App ---
+            initialize();
         });
+    </script>
 
-        if (!response.ok) {
-            const errorBody = await response.text();
-            throw new Error(`Google AI API request failed: ${errorBody}`);
-        }
-
-        const result = await response.json();
-        const jsonText = result.candidates[0].content.parts[0].text;
-
-        // Send the successful response back to the front-end
-        return {
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: jsonText
-        };
-
-    } catch (error) {
-        console.error('Error in Netlify function:', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: error.message })
-        };
-    }
-};
+</body>
+</html>
