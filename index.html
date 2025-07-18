@@ -46,7 +46,7 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen">
+<body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen py-8">
 
     <div class="w-full max-w-4xl mx-auto p-4 md:p-8">
         <!-- Screen 1: Procedure Selection -->
@@ -56,7 +56,7 @@
                 <p class="text-lg text-gray-600 mb-8">Choose a procedure or review today's summaries.</p>
             </div>
             
-            <div id="procedure-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div id="procedure-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Procedure buttons will be injected here -->
             </div>
             
@@ -102,7 +102,7 @@
                 <div id="results-container" class="prose prose-custom space-y-8">
                     <div id="nursing-notes-container">
                         <div class="flex justify-between items-center border-b pb-2 mb-4">
-                            <h3 class="text-xl font-semibold text-gray-800">Nursing Notes</h3>
+                            <h3 class="text-xl font-semibold text-gray-800">Nursing Notes (DAR Format)</h3>
                             <button id="copy-nursing-notes-button" class="copy-button bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-md text-sm">Copy</button>
                         </div>
                         <div id="nursing-notes" class="whitespace-pre-wrap p-4 bg-gray-50 rounded-md"></div>
@@ -130,9 +130,12 @@
         
         <!-- Screen 4: Today's Summary List -->
         <div id="summary-list-screen" class="hidden">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
                  <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Today's Summaries</h1>
-                 <button id="back-to-main-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md">Back</button>
+                 <div class="flex gap-2">
+                    <button id="delete-all-button" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md">Delete All</button>
+                    <button id="back-to-main-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md">Back</button>
+                 </div>
             </div>
             <div id="summary-list-content" class="space-y-6">
                 <!-- Saved summaries will be injected here -->
@@ -166,20 +169,20 @@
             const copyMedsButton = document.getElementById('copy-meds-button');
             const summaryListContent = document.getElementById('summary-list-content');
             const backToMainButton = document.getElementById('back-to-main-button');
+            const deleteAllButton = document.getElementById('delete-all-button');
 
             // --- App State ---
             let recognition;
             let transcriptionLog = [];
             let currentProcedure = '';
+            let editingSummaryIndex = null; // To track if we are adding on to an existing summary
             const SUMMARY_STORAGE_KEY = 'dailyProcedureSummaries';
 
             const procedures = [
-                'Transesophageal Echo',
-                'Cardioversion',
-                'TEE Guided Cardioversion',
-                'Stress Test',
-                'Stress Echo',
-                'Dobutamine Echo'
+                'TEE', 
+                'Definity Administration', 
+                'Lasix IV Administration', 
+                'Dobutamine Stress Echo'
             ];
 
             // --- Speech Recognition Setup ---
@@ -214,7 +217,7 @@
                 };
 
                 recognition.onend = () => {
-                    if (!transcriptionScreen.classList.contains('hidden') && !startRecordingButton.classList.contains('hidden')) {
+                    if (recordingIndicatorDiv.classList.contains('hidden') === false) {
                          setTimeout(() => { try { recognition.start(); } catch(e) {} }, 250);
                     }
                 };
@@ -226,6 +229,7 @@
 
             function initialize() {
                 clearOldSummaries();
+                procedureList.innerHTML = '';
                 procedures.forEach(proc => {
                     const button = document.createElement('button');
                     button.className = "bg-white hover:bg-blue-100 text-blue-700 font-semibold py-4 px-4 border border-blue-300 rounded-lg shadow-sm transition duration-300";
@@ -242,15 +246,24 @@
                 screenToShow.classList.remove('hidden');
             }
 
-            function startProcedure(proc) {
+            function startProcedure(proc, summaryIndex = null) {
                 currentProcedure = proc;
+                editingSummaryIndex = summaryIndex;
                 transcriptionLog = [];
-                procedureTitle.textContent = proc;
-                summaryTitle.textContent = `${proc} Summary`;
-                
-                showScreen(transcriptionScreen);
 
-                transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Press "Start Recording" to begin.</p>';
+                if (summaryIndex !== null) {
+                    const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
+                    const existingTranscript = data.summaries[summaryIndex].rawTranscript || '';
+                    // This is a simplified way to represent the old transcript. A more robust solution might store the log entries themselves.
+                    transcriptionOutput.innerHTML = `<p class="text-gray-500 italic">Previous notes loaded. Ready to add on.</p>`;
+                    procedureTitle.textContent = `Add On: ${proc}`;
+                } else {
+                    procedureTitle.textContent = proc;
+                    transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Press "Start Recording" to begin.</p>';
+                }
+                
+                summaryTitle.textContent = `${proc} Summary`;
+                showScreen(transcriptionScreen);
                 startRecordingButton.classList.remove('hidden');
                 finishButton.classList.add('hidden');
                 recordingIndicatorDiv.classList.add('hidden');
@@ -260,7 +273,10 @@
                 startRecordingButton.classList.add('hidden');
                 finishButton.classList.remove('hidden');
                 recordingIndicatorDiv.classList.remove('hidden');
-                transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
+                
+                if(transcriptionLog.length === 0) {
+                     transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
+                }
 
                 if (recognition) {
                     try { recognition.start(); } catch(e) { console.error("Recognition could not be started:", e); }
@@ -272,13 +288,15 @@
                      transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
                      return;
                 }
-                transcriptionOutput.innerHTML = '';
-                transcriptionLog.forEach(log => {
-                    const p = document.createElement('p');
-                    const timeString = log.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    p.innerHTML = `<strong class="text-blue-600">[${timeString}]</strong>: ${log.note}`;
-                    transcriptionOutput.appendChild(p);
-                });
+                if(transcriptionLog.length === 1 && editingSummaryIndex === null) {
+                    transcriptionOutput.innerHTML = ''; // Clear the "listening" text
+                }
+                
+                const log = transcriptionLog[transcriptionLog.length - 1];
+                const p = document.createElement('p');
+                const timeString = log.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                p.innerHTML = `<strong class="text-blue-600">[${timeString}]</strong>: ${log.note}`;
+                transcriptionOutput.appendChild(p);
                 transcriptionOutput.scrollTop = transcriptionOutput.scrollHeight;
             }
 
@@ -291,15 +309,20 @@
                 loadingIndicator.classList.remove('hidden');
                 resultsContainer.classList.add('hidden');
 
-                const rawTranscript = transcriptionLog.map(log => `[${log.time.toISOString()}] ${log.note}`).join('\n');
+                let fullTranscript = '';
+                if (editingSummaryIndex !== null) {
+                    const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
+                    fullTranscript = data.summaries[editingSummaryIndex].rawTranscript + '\n';
+                }
+                fullTranscript += transcriptionLog.map(log => `[${log.time.toISOString()}] ${log.note}`).join('\n');
 
                 try {
-                    const aiResponse = await processWithAI(rawTranscript, currentProcedure);
+                    const aiResponse = await processWithAI(fullTranscript, currentProcedure);
                     displayResults(aiResponse);
-                    saveSummary(aiResponse);
+                    saveSummary(aiResponse, fullTranscript);
                 } catch (error) {
                     console.error("Error processing with AI:", error);
-                    finalNotes.textContent = `An error occurred while processing your notes. Please check the console for details. Error: ${error.message}`;
+                    finalNotes.textContent = `An error occurred. ${error.message}`;
                     medicationSummary.textContent = "Could not be generated.";
                     nursingNotes.textContent = "Could not be generated.";
                 } finally {
@@ -317,11 +340,7 @@
                 const response = await fetch(functionUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        transcript: transcript, 
-                        procedure: procedure,
-                        timezone: userTimezone
-                    })
+                    body: JSON.stringify({ transcript, procedure, timezone: userTimezone })
                 });
 
                 if (!response.ok) {
@@ -333,12 +352,9 @@
             }
 
             function displayResults(data) {
-                copyNotesButton.textContent = 'Copy';
-                copyMedsButton.textContent = 'Copy';
-                copyNursingNotesButton.textContent = 'Copy';
-
-                nursingNotes.textContent = data.nursingNotes || "No nursing notes were generated.";
-                finalNotes.textContent = data.procedureNotes || "No procedure notes were generated.";
+                [copyNotesButton, copyMedsButton, copyNursingNotesButton].forEach(btn => btn.textContent = 'Copy');
+                nursingNotes.textContent = data.nursingNotes || "No nursing notes generated.";
+                finalNotes.textContent = data.procedureNotes || "No procedure log generated.";
                 medicationSummary.innerHTML = '';
                 if (data.medicationSummary && data.medicationSummary.length > 0) {
                     const ul = document.createElement('ul');
@@ -350,37 +366,47 @@
                     });
                     medicationSummary.appendChild(ul);
                 } else {
-                    medicationSummary.textContent = "No medications were identified in the transcript.";
+                    medicationSummary.textContent = "No medications identified.";
                 }
             }
             
-            function saveSummary(summaryData) {
-                const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            function saveSummary(summaryData, rawTranscript) {
+                const today = new Date().toISOString().split('T')[0];
                 let data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY)) || { date: today, summaries: [] };
                 
-                data.summaries.push({
+                const newSummary = {
                     procedure: currentProcedure,
                     nursingNotes: summaryData.nursingNotes,
                     notes: summaryData.procedureNotes,
-                    meds: summaryData.medicationSummary
-                });
+                    meds: summaryData.medicationSummary,
+                    rawTranscript: rawTranscript
+                };
+
+                if (editingSummaryIndex !== null) {
+                    data.summaries[editingSummaryIndex] = newSummary;
+                } else {
+                    data.summaries.push(newSummary);
+                }
 
                 localStorage.setItem(SUMMARY_STORAGE_KEY, JSON.stringify(data));
             }
 
             function loadAndDisplaySummaries() {
                 const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
-                summaryListContent.innerHTML = ''; // Clear previous content
+                summaryListContent.innerHTML = '';
 
                 if (!data || data.summaries.length === 0) {
                     summaryListContent.innerHTML = '<p class="text-center text-gray-500">No summaries have been saved for today.</p>';
+                    deleteAllButton.classList.add('hidden');
                     return;
                 }
+                deleteAllButton.classList.remove('hidden');
 
                 data.summaries.forEach((summary, index) => {
                     const patientNum = index + 1;
                     const container = document.createElement('div');
                     container.className = 'bg-white p-6 rounded-lg shadow-md border';
+                    container.dataset.index = index;
 
                     let medsHtml = '<p class="text-gray-500">No medications recorded.</p>';
                     if (summary.meds && summary.meds.length > 0) {
@@ -388,9 +414,15 @@
                     }
 
                     container.innerHTML = `
-                        <h3 class="text-xl font-bold text-gray-800 mb-2">Patient ${patientNum}: ${summary.procedure}</h3>
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-xl font-bold text-gray-800 mb-2">Patient ${patientNum}: ${summary.procedure}</h3>
+                            <div class="flex gap-2">
+                                <button class="add-on-btn text-sm bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-md">Add On</button>
+                                <button class="delete-btn text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md">Delete</button>
+                            </div>
+                        </div>
                         <div class="mt-4">
-                            <h4 class="font-semibold text-gray-700">Nursing Notes</h4>
+                            <h4 class="font-semibold text-gray-700">Nursing Notes (DAR)</h4>
                             <div class="whitespace-pre-wrap p-3 bg-gray-50 rounded mt-1 text-sm">${summary.nursingNotes}</div>
                         </div>
                         <div class="mt-4">
@@ -404,6 +436,20 @@
                     `;
                     summaryListContent.appendChild(container);
                 });
+            }
+
+            function deleteSummary(index) {
+                let data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
+                data.summaries.splice(index, 1);
+                localStorage.setItem(SUMMARY_STORAGE_KEY, JSON.stringify(data));
+                loadAndDisplaySummaries();
+            }
+
+            function deleteAllSummaries() {
+                if (confirm("Are you sure you want to delete all summaries for today? This cannot be undone.")) {
+                    localStorage.removeItem(SUMMARY_STORAGE_KEY);
+                    loadAndDisplaySummaries();
+                }
             }
 
             function clearOldSummaries() {
@@ -444,17 +490,29 @@
                 showScreen(summaryListScreen);
             });
             backToMainButton.addEventListener('click', () => showScreen(selectionScreen));
+            deleteAllButton.addEventListener('click', deleteAllSummaries);
 
-            copyNursingNotesButton.addEventListener('click', () => {
-                copyToClipboard(nursingNotes.textContent, copyNursingNotesButton);
+            summaryListContent.addEventListener('click', (e) => {
+                const card = e.target.closest('[data-index]');
+                if (!card) return;
+                const index = parseInt(card.dataset.index, 10);
+
+                if (e.target.classList.contains('delete-btn')) {
+                    if (confirm(`Are you sure you want to delete the summary for Patient ${index + 1}?`)) {
+                        deleteSummary(index);
+                    }
+                }
+                if (e.target.classList.contains('add-on-btn')) {
+                    const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
+                    const procedure = data.summaries[index].procedure;
+                    startProcedure(procedure, index);
+                }
             });
-            copyNotesButton.addEventListener('click', () => {
-                copyToClipboard(finalNotes.textContent, copyNotesButton);
-            });
+
+            copyNursingNotesButton.addEventListener('click', () => copyToClipboard(nursingNotes.textContent, copyNursingNotesButton));
+            copyNotesButton.addEventListener('click', () => copyToClipboard(finalNotes.textContent, copyNotesButton));
             copyMedsButton.addEventListener('click', () => {
-                const medsText = Array.from(medicationSummary.querySelectorAll('li'))
-                                    .map(li => li.textContent)
-                                    .join('\n');
+                const medsText = Array.from(medicationSummary.querySelectorAll('li')).map(li => li.textContent).join('\n');
                 copyToClipboard(medsText || medicationSummary.textContent, copyMedsButton);
             });
 
