@@ -13,21 +13,19 @@
         .prose-custom {
             max-width: none;
         }
-        .prose-custom h2 {
-            font-size: 1.5rem;
+        .vitals-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .vitals-table th, .vitals-table td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        .vitals-table th {
+            background-color: #f9fafb;
             font-weight: 600;
-            margin-bottom: 1rem;
-        }
-        .prose-custom p {
-            margin-bottom: 1rem;
-            line-height: 1.6;
-        }
-        .prose-custom ul {
-            list-style-position: inside;
-            padding-left: 0;
-        }
-        .prose-custom li {
-            margin-bottom: 0.5rem;
         }
         .loader {
             border: 4px solid #f3f3f3;
@@ -100,6 +98,7 @@
                     <p id="loading-text" class="text-gray-600">Processing your notes with AI... Please wait.</p>
                 </div>
                 <div id="results-container" class="prose prose-custom space-y-8">
+                    <div id="vitals-container" class="hidden"></div>
                     <div id="nursing-notes-container">
                         <div class="flex justify-between items-center border-b pb-2 mb-4">
                             <h3 class="text-xl font-semibold text-gray-800">Nursing Notes (DAR Format)</h3>
@@ -160,6 +159,7 @@
             const summaryTitle = document.getElementById('summary-title');
             const loadingIndicator = document.getElementById('loading-indicator');
             const resultsContainer = document.getElementById('results-container');
+            const vitalsContainer = document.getElementById('vitals-container');
             const nursingNotes = document.getElementById('nursing-notes');
             const finalNotes = document.getElementById('final-notes');
             const medicationSummary = document.getElementById('medication-summary');
@@ -175,7 +175,7 @@
             let recognition;
             let transcriptionLog = [];
             let currentProcedure = '';
-            let editingSummaryIndex = null; // To track if we are adding on to an existing summary
+            let editingSummaryIndex = null; 
             const SUMMARY_STORAGE_KEY = 'dailyProcedureSummaries';
 
             const procedures = [
@@ -253,8 +253,6 @@
 
                 if (summaryIndex !== null) {
                     const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
-                    const existingTranscript = data.summaries[summaryIndex].rawTranscript || '';
-                    // This is a simplified way to represent the old transcript. A more robust solution might store the log entries themselves.
                     transcriptionOutput.innerHTML = `<p class="text-gray-500 italic">Previous notes loaded. Ready to add on.</p>`;
                     procedureTitle.textContent = `Add On: ${proc}`;
                 } else {
@@ -274,7 +272,7 @@
                 finishButton.classList.remove('hidden');
                 recordingIndicatorDiv.classList.remove('hidden');
                 
-                if(transcriptionLog.length === 0) {
+                if(transcriptionLog.length === 0 && editingSummaryIndex === null) {
                      transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
                 }
 
@@ -284,10 +282,7 @@
             }
 
             function updateTranscriptionDisplay() {
-                if (transcriptionLog.length === 0) {
-                     transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
-                     return;
-                }
+                if (transcriptionLog.length === 0) return;
                 if(transcriptionLog.length === 1 && editingSummaryIndex === null) {
                     transcriptionOutput.innerHTML = ''; // Clear the "listening" text
                 }
@@ -308,6 +303,7 @@
                 showScreen(summaryScreen);
                 loadingIndicator.classList.remove('hidden');
                 resultsContainer.classList.add('hidden');
+                vitalsContainer.classList.add('hidden');
 
                 let fullTranscript = '';
                 if (editingSummaryIndex !== null) {
@@ -355,6 +351,7 @@
                 [copyNotesButton, copyMedsButton, copyNursingNotesButton].forEach(btn => btn.textContent = 'Copy');
                 nursingNotes.textContent = data.nursingNotes || "No nursing notes generated.";
                 finalNotes.textContent = data.procedureNotes || "No procedure log generated.";
+                
                 medicationSummary.innerHTML = '';
                 if (data.medicationSummary && data.medicationSummary.length > 0) {
                     const ul = document.createElement('ul');
@@ -368,8 +365,55 @@
                 } else {
                     medicationSummary.textContent = "No medications identified.";
                 }
+
+                // Handle vitals display
+                if (data.vitalSigns) {
+                    vitalsContainer.innerHTML = buildVitalsHtml(data.vitalSigns);
+                    vitalsContainer.classList.remove('hidden');
+                } else {
+                    vitalsContainer.classList.add('hidden');
+                }
             }
             
+            function buildVitalsHtml(vitalsData) {
+                let html = '';
+                if (vitalsData.pre) {
+                    const pre = vitalsData.pre;
+                    html += `
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Pre-Procedure Vital Signs</h3>
+                        <table class="vitals-table">
+                            <tr>
+                                <th>Time</th><th>HR</th><th>BP</th><th>RR</th><th>O2 Sat</th><th>Oxygen</th><th>Rhythm</th>
+                            </tr>
+                            <tr>
+                                <td>${pre.time || ''}</td><td>${pre.hr || ''}</td><td>${pre.bp || ''}</td><td>${pre.rr || ''}</td><td>${pre.o2sat || ''}</td><td>${pre.oxygen || ''}</td><td>${pre.rhythm || ''}</td>
+                            </tr>
+                        </table>
+                    `;
+                }
+                if (vitalsData.intra && vitalsData.intra.length > 0) {
+                    const intra = vitalsData.intra;
+                    html += `
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4 mt-8">Intra-Procedure Vital Signs</h3>
+                        <table class="vitals-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th><th>BP</th><th>HR</th><th>Rhythm</th><th>RR</th><th>O2 Sat</th><th>RSS Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${intra.map(row => `
+                                    <tr>
+                                        <td>${row.time || ''}</td><td>${row.bp || ''}</td><td>${row.hr || ''}</td><td>${row.rhythm || ''}</td><td>${row.rr || ''}</td><td>${row.o2sat || ''}</td><td>${row.rss_score || ''}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+                return html;
+            }
+
             function saveSummary(summaryData, rawTranscript) {
                 const today = new Date().toISOString().split('T')[0];
                 let data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY)) || { date: today, summaries: [] };
@@ -379,6 +423,7 @@
                     nursingNotes: summaryData.nursingNotes,
                     notes: summaryData.procedureNotes,
                     meds: summaryData.medicationSummary,
+                    vitals: summaryData.vitalSigns, // Save vitals data
                     rawTranscript: rawTranscript
                 };
 
@@ -412,6 +457,11 @@
                     if (summary.meds && summary.meds.length > 0) {
                         medsHtml = '<ul class="list-disc pl-5">' + summary.meds.map(med => `<li>${med.medication} (administered around ${med.time})</li>`).join('') + '</ul>';
                     }
+                    
+                    let vitalsHtml = '';
+                    if (summary.vitals) {
+                        vitalsHtml = `<div class="mt-4">${buildVitalsHtml(summary.vitals)}</div>`;
+                    }
 
                     container.innerHTML = `
                         <div class="flex justify-between items-start">
@@ -421,6 +471,7 @@
                                 <button class="delete-btn text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md">Delete</button>
                             </div>
                         </div>
+                        ${vitalsHtml}
                         <div class="mt-4">
                             <h4 class="font-semibold text-gray-700">Nursing Notes (DAR)</h4>
                             <div class="whitespace-pre-wrap p-3 bg-gray-50 rounded mt-1 text-sm">${summary.nursingNotes}</div>
