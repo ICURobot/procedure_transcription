@@ -30,7 +30,11 @@ exports.handler = async function(event) {
 
             Based on this de-identified transcript, perform the following three tasks:
 
-            1.  **Generate Nursing Notes:** Create a comprehensive, chronological, narrative summary of the entire procedure (pre, intra, and post). This section is for nursing charts and should be easy to read. **Do not include any timestamps in this section.**
+            1.  **Generate Nursing Notes (DAR Format):** Create a comprehensive nursing note in the DAR (Data, Action, Response) format. The note should be a chronological narrative of the entire procedure (pre, intra, and post).
+                - **Data:** Include relevant patient data, observations, and status before and during the procedure.
+                - **Action:** Detail all actions taken by the nursing staff, including medication administration, patient positioning, and monitoring.
+                - **Response:** Describe the patient's response to the actions and their overall status post-procedure.
+                This section should be a well-written paragraph or set of paragraphs and **must not contain any timestamps.**
 
             2.  **Generate Procedure Log (with Timestamps):** Review the de-identified transcript. Correct speech-to-text errors. Convert the dictation into a clear, timestamped log of events. Each distinct event or observation should start on a new line and **MUST be prefixed with its corresponding local time in HH:MM format.** (e.g., "[14:32] Patient vitals stable.").
 
@@ -39,7 +43,7 @@ exports.handler = async function(event) {
             Please provide the output in a strict JSON format. Do not include any text before or after the JSON object.
 
             The JSON object must have three keys: "nursingNotes", "procedureNotes", and "medicationSummary".
-            - "nursingNotes" must be a single string containing the narrative summary.
+            - "nursingNotes" must be a single string containing the DAR summary.
             - "procedureNotes" must be a single string containing the timestamped log. Use "\\n" for line breaks.
             - "medicationSummary" must be an array of objects. Each object MUST have "medication" and "time" keys.
         `;
