@@ -143,8 +143,13 @@ exports.handler = async function(event) {
              throw new Error("Received an incomplete or empty response from the AI model.");
         }
 
-        const jsonText = result.candidates[0].content.parts[0].text;
-
+        let jsonText = result.candidates[0].content.parts[0].text;
+        try {
+            jsonText = extractFirstJsonObject(jsonText);
+            JSON.parse(jsonText); // Validate
+        } catch (err) {
+            throw new Error("AI response was not valid JSON: " + err.message);
+        }
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -159,3 +164,30 @@ exports.handler = async function(event) {
         };
     }
 };
+
+// Helper to extract the first JSON object from a string
+function extractFirstJsonObject(text) {
+    const firstBrace = text.indexOf('{');
+    if (firstBrace === -1) throw new Error("No JSON object found in response.");
+    let depth = 0, inString = false, escape = false, end = -1;
+    for (let i = firstBrace; i < text.length; i++) {
+        const char = text[i];
+        if (inString) {
+            if (escape) escape = false;
+            else if (char === '\\') escape = true;
+            else if (char === '"') inString = false;
+        } else {
+            if (char === '"') inString = true;
+            else if (char === '{') depth++;
+            else if (char === '}') {
+                depth--;
+                if (depth === 0) {
+                    end = i + 1;
+                    break;
+                }
+            }
+        }
+    }
+    if (end === -1) throw new Error("No complete JSON object found in response.");
+    return text.slice(firstBrace, end);
+}
