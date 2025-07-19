@@ -140,8 +140,7 @@
                 <!-- Saved summaries will be injected here -->
             </div>
         </div>
-        <!-- 1. Add a div for error messages near the top of the main container -->
-        <div id="error-message" class="hidden mb-4 p-4 bg-red-100 text-red-700 rounded"></div>
+        <div id="error-message" class="hidden fixed top-5 right-5 mb-4 p-4 bg-red-100 text-red-700 rounded-lg shadow-lg z-50"></div>
     </div>
 
     <script>
@@ -248,6 +247,15 @@
                 });
                 screenToShow.classList.remove('hidden');
             }
+            
+            // FIX: Added the missing showError function
+            function showError(message) {
+                errorMessageDiv.textContent = message;
+                errorMessageDiv.classList.remove('hidden');
+                setTimeout(() => {
+                    errorMessageDiv.classList.add('hidden');
+                }, 5000); // Hide after 5 seconds
+            }
 
             function startProcedure(proc, summaryIndex = null) {
                 currentProcedure = proc;
@@ -298,7 +306,6 @@
                 transcriptionOutput.scrollTop = transcriptionOutput.scrollHeight;
             }
 
-            // --- Modularize AI processing and error handling ---
             async function finishProcedure() {
                 if (recognition) recognition.stop();
                 showScreen(summaryScreen);
@@ -387,7 +394,6 @@
                     medicationSummary.textContent = "No medications identified.";
                 }
 
-                // Handle vitals display
                 if (data.vitalSigns) {
                     vitalsContainer.innerHTML = buildVitalsHtml(data.vitalSigns);
                     vitalsContainer.classList.remove('hidden');
@@ -396,10 +402,8 @@
                 }
             }
             
-            // Replace buildVitalsHtml function with a version that outputs a readable sequence for TEE:
             function buildVitalsHtml(vitalsData) {
                 let html = '';
-                // Pre-Procedure Vitals
                 let preVitals = vitalsData.pre;
                 if (preVitals && typeof preVitals === 'string') {
                     try { preVitals = JSON.parse(preVitals); } catch (e) { preVitals = {}; }
@@ -410,7 +414,6 @@
                     html += `<strong>Time:</strong> ${preVitals.time || ''} | <strong>T:</strong> ${preVitals.temp || ''} | <strong>BP:</strong> ${preVitals.bp || ''} | <strong>HR:</strong> ${preVitals.hr || ''} | <strong>Rhythm:</strong> ${preVitals.rhythm || ''} | <strong>RR:</strong> ${preVitals.rr || ''} | <strong>SpO₂:</strong> ${preVitals.o2sat || ''}`;
                     html += `</div>`;
                 }
-                // Intra-Procedure Vitals
                 if (vitalsData.intra && vitalsData.intra.length > 0) {
                     html += `<h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4 mt-8">Intra-Procedure Vital Signs</h3>`;
                     vitalsData.intra.forEach(row => {
@@ -435,7 +438,7 @@
                     nursingNotes: summaryData.nursingNotes,
                     notes: summaryData.procedureNotes,
                     meds: summaryData.medicationSummary,
-                    vitals: summaryData.vitalSigns, // Save vitals data
+                    vitals: summaryData.vitalSigns,
                     rawTranscript: rawTranscript
                 };
 
