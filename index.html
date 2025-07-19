@@ -328,9 +328,14 @@
             }
             
             async function processWithAI(transcript, procedure) {
-                console.log("Sending transcript to Netlify Function for processing...");
+                console.log("Sending transcript to Google Cloud Function for processing...");
                 
-                const functionUrl = '/.netlify/functions/process-notes';
+                const functionUrl = 'https://procedure-dictation-backend-947482814203.northamerica-northeast2.run.app'; 
+
+                if (functionUrl === 'YOUR_GOOGLE_CLOUD_FUNCTION_URL_HERE') {
+                    throw new Error("Google Cloud Function URL is not set in index.html.");
+                }
+
                 const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                 try {
