@@ -41,11 +41,10 @@ exports.handler = async function(event) {
         // Add special instructions ONLY for TEE procedure
         if (procedure === 'TEE') {
             prompt += `
-            4.  **Extract Vital Signs for TEE:** Because this is a TEE procedure, you MUST extract vital signs into a structured object.
-                - **Pre-Procedure Vitals:** Find the single set of vital signs taken before the procedure.
-                - **Intra-Procedure Vitals:** Find all sets of vital signs taken during the procedure (usually every 5 minutes), including the Ramsay Sedation Scale (RSS) score.
-                The final JSON object MUST have an additional key called "vitalSigns".
-                - "vitalSigns" should contain an object with two keys: "pre" and "intra".
+            4.  **Extract Vital Signs for TEE:** Because this is a TEE procedure, you MUST extract vital signs into a structured object. The final JSON object MUST have a key called "vitalSigns".
+                - **Pre-Procedure Vitals:** Find the single set of vital signs taken before the procedure. If none are mentioned, return the fields as empty strings.
+                - **Intra-Procedure Vitals:** Find all sets of vital signs taken during the procedure, including the Ramsay Sedation Scale (RSS) score. If none are mentioned, return an empty array.
+                - The "vitalSigns" key should contain an object with two keys: "pre" and "intra".
                 - "pre" should be an object with keys: "time", "hr", "bp", "rr", "o2sat", "oxygen", "rhythm".
                 - "intra" should be an ARRAY of objects, each with keys: "time", "bp", "hr", "rhythm", "rr", "o2sat", "rss_score".
             `;
@@ -109,8 +108,8 @@ exports.handler = async function(event) {
                     }
                 }
             };
-            // Although we prompt for it, we don't make it a required field
-            // to prevent errors if no vitals are mentioned in the transcript.
+            // Now we require the vitalsSigns key for TEE procedures
+            requiredFields.push("vitalSigns");
         }
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -139,6 +138,11 @@ exports.handler = async function(event) {
         }
 
         const result = await response.json();
+        
+        if (!result.candidates || !result.candidates[0].content || !result.candidates[0].content.parts[0].text) {
+             throw new Error("Received an incomplete or empty response from the AI model.");
+        }
+
         const jsonText = result.candidates[0].content.parts[0].text;
 
         return {
