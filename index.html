@@ -391,8 +391,19 @@
             
             function buildVitalsHtml(vitalsData) {
                 let html = '';
-                if (vitalsData.pre) {
-                    const pre = vitalsData.pre;
+                
+                // FIX: Check if pre-vitals data is a string and parse it if so.
+                let preVitals = vitalsData.pre;
+                if (preVitals && typeof preVitals === 'string') {
+                    try {
+                        preVitals = JSON.parse(preVitals);
+                    } catch (e) {
+                        console.error("Could not parse pre-vitals string:", preVitals);
+                        preVitals = {}; // Reset to empty object on error
+                    }
+                }
+
+                if (preVitals) {
                     html += `
                         <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Pre-Procedure Vital Signs</h3>
                         <table class="vitals-table">
@@ -400,13 +411,13 @@
                                 <th>Time</th><th>HR</th><th>BP</th><th>RR</th><th>O2 Sat</th><th>Oxygen</th><th>Rhythm</th>
                             </tr>
                             <tr>
-                                <td>${pre.time || ''}</td><td>${pre.hr || ''}</td><td>${pre.bp || ''}</td><td>${pre.rr || ''}</td><td>${pre.o2sat || ''}</td><td>${pre.oxygen || ''}</td><td>${pre.rhythm || ''}</td>
+                                <td>${preVitals.time || ''}</td><td>${preVitals.hr || ''}</td><td>${preVitals.bp || ''}</td><td>${preVitals.rr || ''}</td><td>${preVitals.o2sat || ''}</td><td>${preVitals.oxygen || ''}</td><td>${preVitals.rhythm || ''}</td>
                             </tr>
                         </table>
                     `;
                 }
+
                 if (vitalsData.intra && vitalsData.intra.length > 0) {
-                    const intra = vitalsData.intra;
                     html += `
                         <h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4 mt-8">Intra-Procedure Vital Signs</h3>
                         <table class="vitals-table">
@@ -416,11 +427,22 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                ${intra.map(row => `
+                                ${vitalsData.intra.map(row => {
+                                    // FIX: Check if intra-vitals row is a string and parse it
+                                    let intraRow = row;
+                                    if (typeof intraRow === 'string') {
+                                        try {
+                                            intraRow = JSON.parse(intraRow);
+                                        } catch (e) {
+                                            console.error("Could not parse intra-vitals row:", intraRow);
+                                            intraRow = {};
+                                        }
+                                    }
+                                    return `
                                     <tr>
-                                        <td>${row.time || ''}</td><td>${row.bp || ''}</td><td>${row.hr || ''}</td><td>${row.rhythm || ''}</td><td>${row.rr || ''}</td><td>${row.o2sat || ''}</td><td>${row.rss_score || ''}</td>
+                                        <td>${intraRow.time || ''}</td><td>${intraRow.bp || ''}</td><td>${intraRow.hr || ''}</td><td>${intraRow.rhythm || ''}</td><td>${intraRow.rr || ''}</td><td>${intraRow.o2sat || ''}</td><td>${intraRow.rss_score || ''}</td>
                                     </tr>
-                                `).join('')}
+                                `}).join('')}
                             </tbody>
                         </table>
                     `;
