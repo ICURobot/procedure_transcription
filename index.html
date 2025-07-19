@@ -333,18 +333,27 @@
                 const functionUrl = '/.netlify/functions/process-notes';
                 const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-                const response = await fetch(functionUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ transcript, procedure, timezone: userTimezone })
-                });
+                try {
+                    const response = await fetch(functionUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ transcript, procedure, timezone: userTimezone })
+                    });
 
-                if (!response.ok) {
-                    const errorResult = await response.json();
-                    throw new Error(`Function request failed: ${errorResult.error || response.statusText}`);
+                    let result;
+                    try {
+                        result = await response.json();
+                    } catch (jsonErr) {
+                        throw new Error('Could not parse server response. The server may be down or returned invalid data.');
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`Function request failed: ${result.error || response.statusText}`);
+                    }
+                    return result;
+                } catch (err) {
+                    throw new Error('Could not connect to the backend or received an invalid response. ' + (err.message || ''));
                 }
-                
-                return await response.json();
             }
 
             function displayResults(data) {
