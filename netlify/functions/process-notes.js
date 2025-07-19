@@ -1,8 +1,35 @@
 // File path: netlify/functions/process-notes.js
 
+// Helper to extract the first JSON object from a string
+function extractFirstJsonObject(text) {
+    const firstBrace = text.indexOf('{');
+    if (firstBrace === -1) throw new Error("No JSON object found in response.");
+    let depth = 0, inString = false, escape = false, end = -1;
+    for (let i = firstBrace; i < text.length; i++) {
+        const char = text[i];
+        if (inString) {
+            if (escape) escape = false;
+            else if (char === '\\') escape = true;
+            else if (char === '"') inString = false;
+        } else {
+            if (char === '"') inString = true;
+            else if (char === '{') depth++;
+            else if (char === '}') {
+                depth--;
+                if (depth === 0) {
+                    end = i + 1;
+                    break;
+                }
+            }
+        }
+    }
+    if (end === -1) throw new Error("No complete JSON object found in response.");
+    return text.slice(firstBrace, end);
+}
+
 exports.handler = async function(event) {
     if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Method Not Allowed' };
+        return { statusCode: 405, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
 
     try {
@@ -13,7 +40,7 @@ exports.handler = async function(event) {
 
         const { transcript, procedure, timezone } = JSON.parse(event.body);
         if (!transcript || !procedure || !timezone) {
-            return { statusCode: 400, body: 'Missing transcript, procedure name, or timezone.' };
+            return { statusCode: 400, body: JSON.stringify({ error: 'Missing transcript, procedure name, or timezone.' }) };
         }
 
         // Base prompt for all procedures
@@ -160,34 +187,8 @@ exports.handler = async function(event) {
         console.error('Error in Netlify function:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: error.message })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: error.message || 'Unknown error occurred in backend.' })
         };
     }
 };
-
-// Helper to extract the first JSON object from a string
-function extractFirstJsonObject(text) {
-    const firstBrace = text.indexOf('{');
-    if (firstBrace === -1) throw new Error("No JSON object found in response.");
-    let depth = 0, inString = false, escape = false, end = -1;
-    for (let i = firstBrace; i < text.length; i++) {
-        const char = text[i];
-        if (inString) {
-            if (escape) escape = false;
-            else if (char === '\\') escape = true;
-            else if (char === '"') inString = false;
-        } else {
-            if (char === '"') inString = true;
-            else if (char === '{') depth++;
-            else if (char === '}') {
-                depth--;
-                if (depth === 0) {
-                    end = i + 1;
-                    break;
-                }
-            }
-        }
-    }
-    if (end === -1) throw new Error("No complete JSON object found in response.");
-    return text.slice(firstBrace, end);
-}
