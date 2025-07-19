@@ -248,7 +248,6 @@
                 screenToShow.classList.remove('hidden');
             }
             
-            // FIX: Added the missing showError function
             function showError(message) {
                 errorMessageDiv.textContent = message;
                 errorMessageDiv.classList.remove('hidden');
@@ -408,23 +407,27 @@
                 if (preVitals && typeof preVitals === 'string') {
                     try { preVitals = JSON.parse(preVitals); } catch (e) { preVitals = {}; }
                 }
-                if (preVitals && Object.keys(preVitals).length > 0) {
+
+                if (preVitals && Object.values(preVitals).some(v => v && v !== 'N/A')) {
                     html += `<h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Pre-Procedure Vital Signs</h3>`;
-                    html += `<div class="mb-2">`;
-                    html += `<strong>Time:</strong> ${preVitals.time || ''} | <strong>T:</strong> ${preVitals.temp || ''} | <strong>BP:</strong> ${preVitals.bp || ''} | <strong>HR:</strong> ${preVitals.hr || ''} | <strong>Rhythm:</strong> ${preVitals.rhythm || ''} | <strong>RR:</strong> ${preVitals.rr || ''} | <strong>SpO₂:</strong> ${preVitals.o2sat || ''}`;
+                    html += `<div class="mb-2 p-3 bg-gray-50 rounded">`;
+                    html += `<strong>Time:</strong> ${preVitals.time || 'N/A'} | <strong>T:</strong> ${preVitals.temp || 'N/A'} | <strong>BP:</strong> ${preVitals.bp || 'N/A'} | <strong>HR:</strong> ${preVitals.hr || 'N/A'} | <strong>Rhythm:</strong> ${preVitals.rhythm || 'N/A'} | <strong>RR:</strong> ${preVitals.rr || 'N/A'} | <strong>SpO₂:</strong> ${preVitals.o2sat || 'N/A'}`;
                     html += `</div>`;
                 }
+
                 if (vitalsData.intra && vitalsData.intra.length > 0) {
                     html += `<h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4 mt-8">Intra-Procedure Vital Signs</h3>`;
+                    html += `<div class="p-3 bg-gray-50 rounded space-y-1">`;
                     vitalsData.intra.forEach(row => {
                         let intraRow = row;
                         if (typeof intraRow === 'string') {
                             try { intraRow = JSON.parse(intraRow); } catch (e) { intraRow = {}; }
                         }
-                        html += `<div class="mb-1">`;
-                        html += `<strong>Time:</strong> ${intraRow.time || ''} | <strong>T:</strong> ${intraRow.temp || ''} | <strong>BP:</strong> ${intraRow.bp || ''} | <strong>HR:</strong> ${intraRow.hr || ''} | <strong>Rhythm:</strong> ${intraRow.rhythm || ''} | <strong>RR:</strong> ${intraRow.rr || ''} | <strong>SpO₂:</strong> ${intraRow.o2sat || ''}`;
+                        html += `<div>`;
+                        html += `<strong>Time:</strong> ${intraRow.time || 'N/A'} | <strong>T:</strong> ${intraRow.temp || 'N/A'} | <strong>BP:</strong> ${intraRow.bp || 'N/A'} | <strong>HR:</strong> ${intraRow.hr || 'N/A'} | <strong>Rhythm:</strong> ${intraRow.rhythm || 'N/A'} | <strong>RR:</strong> ${intraRow.rr || 'N/A'} | <strong>SpO₂:</strong> ${intraRow.o2sat || 'N/A'}`;
                         html += `</div>`;
                     });
+                    html += `</div>`;
                 }
                 return html;
             }
