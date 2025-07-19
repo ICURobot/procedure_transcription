@@ -140,6 +140,8 @@
                 <!-- Saved summaries will be injected here -->
             </div>
         </div>
+        <!-- 1. Add a div for error messages near the top of the main container -->
+        <div id="error-message" class="hidden mb-4 p-4 bg-red-100 text-red-700 rounded"></div>
     </div>
 
     <script>
@@ -170,6 +172,7 @@
             const summaryListContent = document.getElementById('summary-list-content');
             const backToMainButton = document.getElementById('back-to-main-button');
             const deleteAllButton = document.getElementById('delete-all-button');
+            const errorMessageDiv = document.getElementById('error-message');
 
             // --- App State ---
             let recognition;
@@ -295,29 +298,26 @@
                 transcriptionOutput.scrollTop = transcriptionOutput.scrollHeight;
             }
 
+            // --- Modularize AI processing and error handling ---
             async function finishProcedure() {
-                if (recognition) {
-                    recognition.stop();
-                }
-
+                if (recognition) recognition.stop();
                 showScreen(summaryScreen);
                 loadingIndicator.classList.remove('hidden');
                 resultsContainer.classList.add('hidden');
                 vitalsContainer.classList.add('hidden');
-
                 let fullTranscript = '';
                 if (editingSummaryIndex !== null) {
                     const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
                     fullTranscript = data.summaries[editingSummaryIndex].rawTranscript + '\n';
                 }
                 fullTranscript += transcriptionLog.map(log => `[${log.time.toISOString()}] ${log.note}`).join('\n');
-
                 try {
                     const aiResponse = await processWithAI(fullTranscript, currentProcedure);
+                    if (!validateAIResponse(aiResponse)) throw new Error('AI returned incomplete or invalid data.');
                     displayResults(aiResponse);
                     saveSummary(aiResponse, fullTranscript);
                 } catch (error) {
-                    console.error("Error processing with AI:", error);
+                    showError('Error processing with AI: ' + error.message);
                     finalNotes.textContent = `An error occurred. ${error.message}`;
                     medicationSummary.textContent = "Could not be generated.";
                     nursingNotes.textContent = "Could not be generated.";
@@ -326,7 +326,14 @@
                     resultsContainer.classList.remove('hidden');
                 }
             }
-            
+
+            function validateAIResponse(data) {
+                if (!data) return false;
+                if (!data.nursingNotes || !data.procedureNotes || !Array.isArray(data.medicationSummary)) return false;
+                if (currentProcedure === 'TEE' && !data.vitalSigns) return false;
+                return true;
+            }
+
             async function processWithAI(transcript, procedure) {
                 console.log("Sending transcript to Google Cloud Function for processing...");
                 
@@ -504,6 +511,9 @@
                             <h3 class="text-xl font-bold text-gray-800 mb-2">Patient ${patientNum}: ${summary.procedure}</h3>
                             <div class="flex gap-2">
                                 <button class="add-on-btn text-sm bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-md">Add On</button>
+                                <button class="edit-btn text-sm bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-1 px-3 rounded-md">Edit</button>
+                                <button class="export-btn text-sm bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded-md">Export</button>
+                                <button class="print-btn text-sm bg-gray-500 hover:bg-gray-600 text-white font-semibold py-1 px-3 rounded-md">Print</button>
                                 <button class="delete-btn text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md">Delete</button>
                             </div>
                         </div>
@@ -579,6 +589,7 @@
             backToMainButton.addEventListener('click', () => showScreen(selectionScreen));
             deleteAllButton.addEventListener('click', deleteAllSummaries);
 
+            // --- Editing summaries ---
             summaryListContent.addEventListener('click', (e) => {
                 const card = e.target.closest('[data-index]');
                 if (!card) return;
@@ -593,6 +604,15 @@
                     const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
                     const procedure = data.summaries[index].procedure;
                     startProcedure(procedure, index);
+                }
+                if (e.target.classList.contains('edit-btn')) {
+                    editSummary(index);
+                }
+                if (e.target.classList.contains('export-btn')) {
+                    exportSummary(index);
+                }
+                if (e.target.classList.contains('print-btn')) {
+                    printSummary(index);
                 }
             });
 
