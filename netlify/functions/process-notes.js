@@ -80,10 +80,37 @@ exports.handler = async function(event) {
             properties.vitalSigns = {
                 type: "OBJECT",
                 properties: {
-                    pre: { type: "OBJECT" },
-                    intra: { type: "ARRAY", items: { type: "OBJECT" } }
+                    pre: { 
+                        type: "OBJECT",
+                        properties: {
+                            time: { type: "STRING" },
+                            hr: { type: "STRING" },
+                            bp: { type: "STRING" },
+                            rr: { type: "STRING" },
+                            o2sat: { type: "STRING" },
+                            oxygen: { type: "STRING" },
+                            rhythm: { type: "STRING" }
+                        }
+                    },
+                    intra: { 
+                        type: "ARRAY", 
+                        items: { 
+                            type: "OBJECT",
+                            properties: {
+                                time: { type: "STRING" },
+                                bp: { type: "STRING" },
+                                hr: { type: "STRING" },
+                                rhythm: { type: "STRING" },
+                                rr: { type: "STRING" },
+                                o2sat: { type: "STRING" },
+                                rss_score: { type: "STRING" }
+                            }
+                        } 
+                    }
                 }
             };
+            // Although we prompt for it, we don't make it a required field
+            // to prevent errors if no vitals are mentioned in the transcript.
         }
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
