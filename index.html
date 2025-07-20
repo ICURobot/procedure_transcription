@@ -486,9 +486,7 @@
                             <h3 class="text-xl font-bold text-gray-800 mb-2">Patient ${patientNum}: ${summary.procedure}</h3>
                             <div class="flex gap-2">
                                 <button class="add-on-btn text-sm bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-md">Add On</button>
-                                <button class="edit-btn text-sm bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-1 px-3 rounded-md">Edit</button>
-                                <button class="export-btn text-sm bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded-md">Export</button>
-                                <button class="print-btn text-sm bg-gray-500 hover:bg-gray-600 text-white font-semibold py-1 px-3 rounded-md">Print</button>
+                                <button class="copy-summary-btn text-sm bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded-md">Copy</button>
                                 <button class="delete-btn text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md">Delete</button>
                             </div>
                         </div>
@@ -580,14 +578,38 @@
                     const procedure = data.summaries[index].procedure;
                     startProcedure(procedure, index);
                 }
-                if (e.target.classList.contains('edit-btn')) {
-                    editSummary(index);
-                }
-                if (e.target.classList.contains('export-btn')) {
-                    exportSummary(index);
-                }
-                if (e.target.classList.contains('print-btn')) {
-                    printSummary(index);
+                if (e.target.classList.contains('copy-summary-btn')) {
+                    const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
+                    const summary = data.summaries[index];
+                    let textToCopy = `Patient ${index + 1}: ${summary.procedure}\n\n`;
+
+                    if (summary.vitals) {
+                        const preVitals = summary.vitals.pre;
+                        if (preVitals && Object.values(preVitals).some(v => v && v !== 'N/A')) {
+                            textToCopy += "Pre-Procedure Vital Signs:\n";
+                            textToCopy += `Time: ${preVitals.time || 'N/A'} | T: ${preVitals.temp || 'N/A'} | BP: ${preVitals.bp || 'N/A'} | HR: ${preVitals.hr || 'N/A'} | Rhythm: ${preVitals.rhythm || 'N/A'} | RR: ${preVitals.rr || 'N/A'} | SpO₂: ${preVitals.o2sat || 'N/A'}\n\n`;
+                        }
+                        const intraVitals = summary.vitals.intra;
+                        if (intraVitals && intraVitals.length > 0) {
+                            textToCopy += "Intra-Procedure Vital Signs:\n";
+                            intraVitals.forEach(row => {
+                                textToCopy += `Time: ${row.time || 'N/A'} | T: ${row.temp || 'N/A'} | BP: ${row.bp || 'N/A'} | HR: ${row.hr || 'N/A'} | Rhythm: ${row.rhythm || 'N/A'} | RR: ${row.rr || 'N/A'} | SpO₂: ${row.o2sat || 'N/A'}\n`;
+                            });
+                            textToCopy += "\n";
+                        }
+                    }
+
+                    textToCopy += `Nursing Notes (DAR):\n${summary.nursingNotes}\n\n`;
+                    textToCopy += `Procedure Log:\n${summary.notes}\n\n`;
+                    textToCopy += `Medication Summary:\n`;
+                    if (summary.meds && summary.meds.length > 0) {
+                        summary.meds.forEach(med => {
+                            textToCopy += `- ${med.medication} (administered around ${med.time})\n`;
+                        });
+                    } else {
+                        textToCopy += "No medications recorded.\n";
+                    }
+                    copyToClipboard(textToCopy, e.target);
                 }
             });
 
