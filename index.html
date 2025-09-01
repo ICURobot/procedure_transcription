@@ -719,8 +719,14 @@
                     const data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY));
                     fullTranscript = data.summaries[this.state.editingSummaryIndex].rawTranscript + '\n';
                 }
+                
+                console.log('Transcription log length:', this.state.transcriptionLog.length);
+                console.log('Transcription log:', this.state.transcriptionLog);
+                
                 fullTranscript += this.state.transcriptionLog.map(log => 
                     `[${log.time.toISOString()}] ${log.note}`).join('\n');
+                
+                console.log('Full transcript:', fullTranscript);
                 
                 try {
                     const aiResponse = await this.processWithAI(fullTranscript, this.state.currentProcedure);
