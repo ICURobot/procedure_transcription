@@ -465,11 +465,11 @@
                 });
             }
 
-            async setupDeepgramWebSocket() {
+            async setupDeepgramStreaming() {
                 try {
-                    console.log('Setting up Deepgram WebSocket...');
+                    console.log('Setting up Deepgram streaming...');
                     
-                    // Get API key from environment (you'll need to set this in your deployment)
+                    // Get API key from environment
                     const apiKey = await this.getDeepgramApiKey();
                     console.log('API key received:', apiKey ? 'Yes' : 'No');
                     
@@ -477,70 +477,16 @@
                         throw new Error('Deepgram API key not available');
                     }
 
-                    // Create WebSocket connection to Deepgram
-                    const wsUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=en-US&smart_format=true&punctuate=true&numerals=true&interim_results=true&endpointing=200`;
-                    console.log('WebSocket URL:', wsUrl);
-                    
-                    this.state.deepgramSocket = new WebSocket(wsUrl);
-                    console.log('WebSocket object created');
-                    
-                    this.state.deepgramSocket.onopen = () => {
-                        console.log('Deepgram WebSocket connected!');
-                        this.state.isConnected = true;
-                        this.showStreamingFeedback('🟢 Connected to Deepgram');
-                    };
-                    
-                    this.state.deepgramSocket.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
-                        console.log('Deepgram response:', data);
-                        
-                        if (data.type === 'Results' && data.channel && data.channel.alternatives) {
-                            const transcript = data.channel.alternatives[0].transcript;
-                            const confidence = data.channel.alternatives[0].confidence;
-                            const isFinal = data.is_final;
-                            
-                            if (transcript && transcript.trim()) {
-                                console.log('Transcript received:', transcript, 'Final:', isFinal);
-                                
-                                if (isFinal) {
-                                    // Add to transcription log
-                                    const timestamp = new Date();
-                                    const logEntry = { 
-                                        time: timestamp, 
-                                        note: transcript.charAt(0).toUpperCase() + transcript.slice(1),
-                                        confidence: confidence
-                                    };
-                                    this.state.transcriptionLog.push(logEntry);
-                                    this.updateTranscriptionDisplay();
-                                } else {
-                                    // Show interim result
-                                    this.showStreamingFeedback(`🔄 ${transcript}`);
-                                }
-                            }
-                        }
-                    };
-                    
-                    this.state.deepgramSocket.onerror = (error) => {
-                        console.error('Deepgram WebSocket error:', error);
-                        this.showError('Deepgram connection error');
-                    };
-                    
-                    this.state.deepgramSocket.onclose = (event) => {
-                        console.log('Deepgram WebSocket closed:', event.code, event.reason);
-                        this.state.isConnected = false;
-                    };
-                    
-                    // Add connection timeout
-                    setTimeout(() => {
-                        if (!this.state.isConnected) {
-                            console.error('WebSocket connection timeout');
-                            this.showError('WebSocket connection timeout');
-                        }
-                    }, 10000); // 10 second timeout
+                    // Use Deepgram's streaming REST API instead of WebSocket
+                    // This is more reliable for our use case
+                    this.state.deepgramApiKey = apiKey;
+                    this.state.isConnected = true;
+                    console.log('Deepgram streaming setup complete');
+                    this.showStreamingFeedback('🟢 Deepgram streaming ready');
                     
                 } catch (error) {
-                    console.error('Error setting up Deepgram WebSocket:', error);
-                    this.showError('Could not connect to Deepgram: ' + error.message);
+                    console.error('Error setting up Deepgram streaming:', error);
+                    this.showError('Could not setup Deepgram: ' + error.message);
                 }
             }
 
@@ -612,21 +558,52 @@
                 }
                 
                 try {
-                    // Send audio chunk through WebSocket if connected
-                    if (this.state.deepgramSocket && this.state.isConnected) {
-                        console.log('Sending audio chunk to Deepgram WebSocket, size:', audioBlob.size, 'bytes');
+                    // Send audio chunk to Deepgram streaming API if connected
+                    if (this.state.isConnected && this.state.deepgramApiKey) {
+                        console.log('Sending audio chunk to Deepgram streaming API, size:', audioBlob.size, 'bytes');
                         
-                        // Convert blob to array buffer and send
-                        const arrayBuffer = await audioBlob.arrayBuffer();
-                        this.state.deepgramSocket.send(arrayBuffer);
+                        // Convert blob to base64 and send to our backend function
+                        const base64Audio = await this.blobToBase64(audioBlob);
+                        
+                        const response = await fetch('/api/speech-to-text-live', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                audioData: base64Audio,
+                                encoding: 'webm',
+                                sampleRateHertz: 48000,
+                                languageCode: 'en-US'
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            console.log('Deepgram streaming response:', result);
+                            
+                            if (result.transcript && result.transcript.trim()) {
+                                const timestamp = new Date();
+                                const logEntry = { 
+                                    time: timestamp, 
+                                    note: result.transcript.charAt(0).toUpperCase() + result.transcript.slice(1),
+                                    confidence: result.confidence
+                                };
+                                this.state.transcriptionLog.push(logEntry);
+                                this.updateTranscriptionDisplay();
+                                
+                                // Show real-time feedback
+                                this.showStreamingFeedback(result.transcript);
+                            }
+                        } else {
+                            console.error('Deepgram streaming API error:', response.status);
+                        }
                         
                         // Show streaming feedback
                         this.showStreamingFeedback('🔄 Processing...');
                     } else {
-                        console.log('Deepgram WebSocket not connected, skipping audio chunk');
-                        // Fallback: try to connect WebSocket
-                        if (!this.state.deepgramSocket) {
-                            await this.setupDeepgramWebSocket();
+                        console.log('Deepgram streaming not connected, skipping audio chunk');
+                        // Fallback: try to setup streaming
+                        if (!this.state.isConnected) {
+                            await this.setupDeepgramStreaming();
                         }
                     }
                     
@@ -780,9 +757,9 @@
                     await this.setupMediaRecorder();
                 }
 
-                // Setup Deepgram WebSocket connection
-                if (!this.state.deepgramSocket || !this.state.isConnected) {
-                    await this.setupDeepgramWebSocket();
+                // Setup Deepgram streaming connection
+                if (!this.state.isConnected) {
+                    await this.setupDeepgramStreaming();
                 }
 
                 if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'inactive') {
@@ -819,11 +796,10 @@
                     this.state.stream.getTracks().forEach(track => track.stop());
                 }
                 
-                // Close Deepgram WebSocket connection
-                if (this.state.deepgramSocket && this.state.isConnected) {
-                    this.state.deepgramSocket.close();
+                // Close Deepgram streaming connection
+                if (this.state.isConnected) {
                     this.state.isConnected = false;
-                    console.log('Deepgram WebSocket closed');
+                    console.log('Deepgram streaming closed');
                 }
                 
                 this.showScreen('summary-screen');
@@ -1020,23 +996,24 @@
                     if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'recording') {
                         this.state.mediaRecorder.stop();
                     }
-                    if (this.state.stream) {
-                        this.state.stream.getTracks().forEach(track => track.stop());
-                    }
-                    this.state.isRecording = false;
+                                    if (this.state.stream) {
+                    this.state.stream.getTracks().forEach(track => track.stop());
                 }
-                
-                // Close Deepgram WebSocket connection
-                if (this.state.deepgramSocket && this.state.isConnected) {
-                    this.state.deepgramSocket.close();
-                    this.state.isConnected = false;
-                    console.log('Deepgram WebSocket closed');
-                }
-                
-                // Reset state
+                this.state.isRecording = false;
+            }
+            
+            // Close Deepgram streaming connection
+            if (this.state.isConnected) {
+                this.state.isConnected = false;
+                console.log('Deepgram streaming closed');
+            }
+            
+                            // Reset state
                 this.state.transcriptionLog = [];
                 this.state.currentProcedure = '';
                 this.state.editingSummaryIndex = null;
+                this.state.deepgramSocket = null;
+                this.state.isConnected = false;
                 
                 // Reset UI
                 this.elements['transcription-output'].innerHTML = '<p class="text-gray-500 italic">Press "Start Recording" to begin.</p>';
