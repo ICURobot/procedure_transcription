@@ -509,6 +509,13 @@
                     const base64Audio = await this.blobToBase64(audioBlob);
                     console.log('Audio blob size:', audioBlob.size, 'bytes');
                     console.log('Base64 audio length:', base64Audio.length);
+                    
+                    // Skip chunks that are too large (over 100KB)
+                    if (audioBlob.size > 100 * 1024) {
+                        console.log('Audio chunk too large, skipping:', audioBlob.size, 'bytes');
+                        return;
+                    }
+                    
                     console.log('Sending audio to speech-to-text API...');
                     const response = await fetch('/api/speech-to-text', {
                         method: 'POST',
@@ -677,7 +684,7 @@
 
                 if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'inactive') {
                     console.log('Starting MediaRecorder...');
-                    this.state.mediaRecorder.start(1000); // Record in 1-second chunks to reduce size
+                    this.state.mediaRecorder.start(500); // Record in 0.5-second chunks to reduce size further
                     console.log('MediaRecorder started');
                 }
             }
