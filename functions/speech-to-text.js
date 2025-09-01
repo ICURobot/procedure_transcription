@@ -16,10 +16,10 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    console.log('Speech-to-text function called');
+    console.log('Deepgram Speech-to-text function called');
     console.log('Request body length:', event.body ? event.body.length : 'undefined');
     
-    const { audioData, encoding = 'WEBM_OPUS', sampleRateHertz = 48000, languageCode = 'en-US' } = JSON.parse(event.body);
+    const { audioData, encoding = 'webm', sampleRateHertz = 48000, languageCode = 'en-US' } = JSON.parse(event.body);
 
     console.log('Audio data length:', audioData ? audioData.length : 'undefined');
     console.log('Encoding:', encoding);
@@ -47,45 +47,85 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Configure the request for Google Speech-to-Text REST API
-    const request = {
-      audio: {
-        content: audioData
-      },
-      config: {
-        encoding: encoding,
-        sampleRateHertz: sampleRateHertz,
-        languageCode: languageCode,
-        enableAutomaticPunctuation: true,
-        enableWordTimeOffsets: false,
-        enableWordConfidence: true,
-        model: 'medical_dictation', // Use medical model for better accuracy
-        useEnhanced: true
-      }
+    // Deepgram API configuration
+    const deepgramUrl = 'https://api.deepgram.com/v1/listen';
+    const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
+    
+    if (!deepgramApiKey) {
+      console.error('DEEPGRAM_API_KEY not found in environment variables');
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Deepgram API key not configured' })
+      };
+    }
+
+    // Deepgram request configuration for real-time medical transcription
+    const deepgramConfig = {
+      model: 'nova-2', // Latest and most accurate model
+      language: languageCode,
+      encoding: encoding,
+      sample_rate: sampleRateHertz,
+      punctuate: true,
+      diarize: false,
+      smart_format: true,
+      numerals: true,
+      profanity_filter: false,
+      redact: false,
+      search: [],
+      replace: [],
+      keywords: [],
+      detect_language: false,
+      multichannel: false,
+      alternatives: 1,
+      interim_results: false, // Set to false for final results only
+      endpointing: 200, // End of speech detection
+      vad_events: false,
+      vad_turnoff: 500,
+      max_alternatives: 1,
+      filler_words: false,
+      profanity_filter: false,
+      redact: false,
+      search: [],
+      replace: [],
+      keywords: [],
+      detect_language: false,
+      multichannel: false,
+      alternatives: 1,
+      interim_results: false,
+      endpointing: 200,
+      vad_events: false,
+      vad_turnoff: 500,
+      max_alternatives: 1,
+      filler_words: false
     };
 
-    // Use Google's REST API directly
-    console.log('Making request to Google Speech-to-Text API...');
-    console.log('API Key present:', !!process.env.GOOGLE_AI_API_KEY);
-    console.log('Request payload size:', JSON.stringify(request).length);
+    console.log('Making request to Deepgram API...');
+    console.log('API Key present:', !!deepgramApiKey);
+    console.log('Request payload size:', JSON.stringify(deepgramConfig).length);
     
-    const response = await fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${process.env.GOOGLE_AI_API_KEY}`, {
+    const response = await fetch(deepgramUrl, {
       method: 'POST',
       headers: {
+        'Authorization': `Token ${deepgramApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(request)
+      body: JSON.stringify({
+        ...deepgramConfig,
+        buffer: audioData
+      })
     });
 
-    console.log('Response status:', response.status);
+    console.log('Deepgram response status:', response.status);
     
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Speech API error:', errorData);
-      throw new Error(`Speech API error: ${response.status} - ${errorData}`);
+      console.error('Deepgram API error:', errorData);
+      throw new Error(`Deepgram API error: ${response.status} - ${errorData}`);
     }
 
     const result = await response.json();
+    console.log('Deepgram response:', JSON.stringify(result, null, 2));
     
     if (!result.results || result.results.length === 0) {
       return {
@@ -100,12 +140,14 @@ exports.handler = async (event, context) => {
     }
 
     const transcription = result.results
-      .map(result => result.alternatives[0].transcript)
-      .join('\n');
+      .map(result => result.channels[0].alternatives[0].transcript)
+      .join(' ');
 
     const confidence = result.results
-      .map(result => result.alternatives[0].confidence)
+      .map(result => result.channels[0].alternatives[0].confidence)
       .reduce((a, b) => a + b, 0) / result.results.length;
+
+    console.log('Transcription result:', { transcript: transcription, confidence });
 
     return {
       statusCode: 200,
@@ -118,7 +160,7 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('Speech-to-Text error:', error);
+    console.error('Deepgram Speech-to-Text error:', error);
     
     return {
       statusCode: 500,

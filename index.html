@@ -525,8 +525,8 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             audioData: base64Audio,
-                            encoding: 'WEBM_OPUS',
-                            sampleRateHertz: 16000, // Lower sample rate for smaller chunks
+                            encoding: 'webm',
+                            sampleRateHertz: 48000, // Higher sample rate for better quality with Deepgram
                             languageCode: 'en-US'
                         })
                     });
