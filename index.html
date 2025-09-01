@@ -483,6 +483,8 @@
                         console.log('Data available, size:', event.data.size);
                         if (event.data.size > 0) {
                             this.state.audioChunks.push(event.data);
+                            // Process each chunk immediately for streaming
+                            this.processAudioChunk();
                         }
                     };
                     
@@ -500,8 +502,11 @@
             async processAudioChunk() {
                 if (this.state.audioChunks.length === 0) return;
                 
-                const audioBlob = new Blob(this.state.audioChunks, { type: 'audio/webm;codecs=opus' });
-                this.state.audioChunks = [];
+                // Take the most recent chunk for streaming
+                const latestChunk = this.state.audioChunks[this.state.audioChunks.length - 1];
+                this.state.audioChunks = []; // Clear all chunks after processing
+                
+                const audioBlob = new Blob([latestChunk], { type: 'audio/webm;codecs=opus' });
                 
                 console.log('Processing audio chunk, size:', audioBlob.size, 'bytes');
                 
