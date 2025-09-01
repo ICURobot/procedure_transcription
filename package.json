@@ -1,0 +1,19 @@
+{
+  "name": "procedure-transcription-app",
+  "version": "1.0.0",
+  "description": "Medical procedure dictation and transcription tool",
+  "main": "index.html",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step needed'"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.2.1"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^2.0.0"
+  },
+  "keywords": ["medical", "transcription", "dictation", "healthcare"],
+  "author": "Your Name",
+  "license": "MIT"
+}

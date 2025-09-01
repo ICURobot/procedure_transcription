@@ -3,86 +3,327 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Medical procedure dictation and transcription tool">
     <title>Medical Procedure Dictation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --success-color: #10b981;
+            --success-hover: #059669;
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+            --warning-color: #f59e0b;
+            --warning-hover: #d97706;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
+            line-height: 1.6;
         }
+
         .prose-custom {
             max-width: none;
         }
+
         .vitals-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.875rem;
         }
-        .vitals-table th, .vitals-table td {
+
+        .vitals-table th, 
+        .vitals-table td {
             border: 1px solid #e5e7eb;
             padding: 0.5rem;
             text-align: left;
         }
+
         .vitals-table th {
             background-color: #f9fafb;
             font-weight: 600;
         }
+
         .loader {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
+            border-top: 4px solid var(--primary-color);
             border-radius: 50%;
             width: 40px;
             height: 40px;
             animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
         .copy-button {
-            transition: background-color 0.3s, color 0.3s;
+            transition: all 0.3s ease;
+        }
+
+        .copy-button:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn {
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .btn:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background-color: var(--success-hover);
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background-color: var(--danger-hover);
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background-color: var(--warning-hover);
+        }
+
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #4b5563;
+        }
+
+        .screen {
+            display: none;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        .recording-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .recording-dot {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background-color: var(--danger-color);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .transcription-output {
+            min-height: 16rem;
+            max-height: 20rem;
+            overflow-y: auto;
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            padding: 1rem;
+        }
+
+        .transcription-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            background-color: white;
+            border-radius: 0.25rem;
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .transcription-time {
+            color: var(--primary-color);
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .summary-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+
+        .summary-card:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .error-message {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background-color: #fef2f2;
+            color: var(--danger-color);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 50;
+            max-width: 400px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .loading-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+            
+            .summary-actions {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+
+        /* Accessibility improvements */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Focus styles for better accessibility */
+        button:focus-visible,
+        input:focus-visible,
+        textarea:focus-visible {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 flex items-center justify-center min-h-screen py-8">
-
+<body class="bg-gray-50 text-gray-800 min-h-screen py-8">
     <div class="w-full max-w-4xl mx-auto p-4 md:p-8">
         <!-- Screen 1: Procedure Selection -->
-        <div id="selection-screen">
+        <div id="selection-screen" class="screen active" role="main">
             <div class="text-center">
                 <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Procedure Dictation</h1>
                 <p class="text-lg text-gray-600 mb-8">Choose a procedure or review today's summaries.</p>
             </div>
             
-            <div id="procedure-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div id="procedure-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" role="grid">
                 <!-- Procedure buttons will be injected here -->
             </div>
             
             <div class="mt-8 border-t pt-6 text-center">
-                 <button id="view-todays-summary-button" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                <button id="view-todays-summary-button" class="btn btn-primary">
                     View Today's Summaries
                 </button>
             </div>
         </div>
 
         <!-- Screen 2: Transcription -->
-        <div id="transcription-screen" class="hidden">
+        <div id="transcription-screen" class="screen" role="main">
             <div class="bg-white p-6 rounded-lg shadow-lg">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-gray-900" id="procedure-title"></h2>
-                    <div id="recording-indicator-div" class="flex items-center space-x-2 hidden">
-                        <div class="w-4 h-4 rounded-full bg-red-500 animate-pulse"></div>
+                    <div class="flex items-center gap-4">
+                        <button id="back-to-home-button" class="btn btn-secondary text-sm">
+                            ← Back to Home
+                        </button>
+                        <h2 class="text-2xl font-bold text-gray-900" id="procedure-title"></h2>
+                    </div>
+                    <div id="recording-indicator-div" class="recording-indicator hidden">
+                        <div class="recording-dot" aria-label="Recording indicator"></div>
                         <span class="text-red-500 font-semibold">Recording</span>
                     </div>
                 </div>
-                <div id="transcription-output" class="h-64 overflow-y-auto p-4 bg-gray-100 rounded-md mb-4 border border-gray-200">
+                
+                <div id="transcription-output" class="transcription-output mb-4" role="log" aria-live="polite">
                     <p class="text-gray-500 italic">Press "Start Recording" to begin.</p>
                 </div>
+                
                 <div class="space-y-2">
-                    <button id="start-recording-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                    <button id="start-recording-button" class="btn btn-success w-full">
                         Start Recording
                     </button>
-                    <button id="finish-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 hidden">
+                    <button id="finish-button" class="btn btn-danger w-full hidden">
                         Finish & Process Notes
                     </button>
                 </div>
@@ -90,272 +331,394 @@
         </div>
 
         <!-- Screen 3: Summary -->
-        <div id="summary-screen" class="hidden">
+        <div id="summary-screen" class="screen" role="main">
             <div class="bg-white p-6 rounded-lg shadow-lg">
-                <h2 class="text-3xl font-bold text-gray-900 mb-6 text-center" id="summary-title"></h2>
-                <div id="loading-indicator" class="flex flex-col items-center justify-center my-8 hidden">
-                    <div class="loader mb-4"></div>
-                    <p id="loading-text" class="text-gray-600">Processing your notes with AI... Please wait.</p>
+                <div class="flex justify-between items-center mb-6">
+                    <button id="back-from-summary-button" class="btn btn-secondary text-sm">
+                        ← Back to Home
+                    </button>
+                    <h2 class="text-3xl font-bold text-gray-900" id="summary-title"></h2>
+                    <div style="width: 100px;"></div> <!-- Spacer for centering -->
                 </div>
+                
+                <div id="loading-indicator" class="hidden">
+                    <div class="loading-overlay">
+                        <div class="loading-content">
+                            <div class="loader mb-4"></div>
+                            <p id="loading-text" class="text-gray-600">Processing your notes with AI... Please wait.</p>
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="results-container" class="prose prose-custom space-y-8">
                     <div id="vitals-container" class="hidden"></div>
+                    
                     <div id="nursing-notes-container">
                         <div class="flex justify-between items-center border-b pb-2 mb-4">
                             <h3 class="text-xl font-semibold text-gray-800">Nursing Notes (DAR Format)</h3>
-                            <button id="copy-nursing-notes-button" class="copy-button bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-md text-sm">Copy</button>
+                            <button id="copy-nursing-notes-button" class="copy-button btn btn-secondary text-sm">
+                                Copy
+                            </button>
                         </div>
                         <div id="nursing-notes" class="whitespace-pre-wrap p-4 bg-gray-50 rounded-md"></div>
                     </div>
+                    
                     <div id="final-notes-container">
                         <div class="flex justify-between items-center border-b pb-2 mb-4">
                             <h3 class="text-xl font-semibold text-gray-800">Procedure Log</h3>
-                            <button id="copy-notes-button" class="copy-button bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-md text-sm">Copy</button>
+                            <button id="copy-notes-button" class="copy-button btn btn-secondary text-sm">
+                                Copy
+                            </button>
                         </div>
                         <div id="final-notes" class="whitespace-pre-wrap p-4 bg-gray-50 rounded-md"></div>
                     </div>
+                    
                     <div id="medication-summary-container">
-                         <div class="flex justify-between items-center border-b pb-2 mb-4">
+                        <div class="flex justify-between items-center border-b pb-2 mb-4">
                             <h3 class="text-xl font-semibold text-gray-800">Medication Summary</h3>
-                            <button id="copy-meds-button" class="copy-button bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-md text-sm">Copy</button>
+                            <button id="copy-meds-button" class="copy-button btn btn-secondary text-sm">
+                                Copy
+                            </button>
                         </div>
                         <div id="medication-summary" class="p-4 bg-gray-50 rounded-md"></div>
                     </div>
                 </div>
-                 <button id="restart-button" class="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                
+                <button id="restart-button" class="btn btn-primary w-full mt-8">
                     Start New Procedure
                 </button>
             </div>
         </div>
         
         <!-- Screen 4: Today's Summary List -->
-        <div id="summary-list-screen" class="hidden">
+        <div id="summary-list-screen" class="screen" role="main">
             <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                 <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Today's Summaries</h1>
-                 <div class="flex gap-2">
-                    <button id="delete-all-button" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md">Delete All</button>
-                    <button id="back-to-main-button" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-md">Back</button>
-                 </div>
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Today's Summaries</h1>
+                <div class="flex gap-2 summary-actions">
+                    <button id="delete-all-button" class="btn btn-danger">Delete All</button>
+                    <button id="back-to-main-button" class="btn btn-secondary">Back</button>
+                </div>
             </div>
             <div id="summary-list-content" class="space-y-6">
                 <!-- Saved summaries will be injected here -->
             </div>
         </div>
-        <div id="error-message" class="hidden fixed top-5 right-5 mb-4 p-4 bg-red-100 text-red-700 rounded-lg shadow-lg z-50"></div>
     </div>
 
+    <!-- Error Message -->
+    <div id="error-message" class="error-message hidden" role="alert" aria-live="assertive"></div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- DOM Elements ---
-            const selectionScreen = document.getElementById('selection-screen');
-            const transcriptionScreen = document.getElementById('transcription-screen');
-            const summaryScreen = document.getElementById('summary-screen');
-            const summaryListScreen = document.getElementById('summary-list-screen');
-            const procedureList = document.getElementById('procedure-list');
-            const viewTodaysSummaryButton = document.getElementById('view-todays-summary-button');
-            const procedureTitle = document.getElementById('procedure-title');
-            const transcriptionOutput = document.getElementById('transcription-output');
-            const startRecordingButton = document.getElementById('start-recording-button');
-            const finishButton = document.getElementById('finish-button');
-            const recordingIndicatorDiv = document.getElementById('recording-indicator-div');
-            const summaryTitle = document.getElementById('summary-title');
-            const loadingIndicator = document.getElementById('loading-indicator');
-            const resultsContainer = document.getElementById('results-container');
-            const vitalsContainer = document.getElementById('vitals-container');
-            const nursingNotes = document.getElementById('nursing-notes');
-            const finalNotes = document.getElementById('final-notes');
-            const medicationSummary = document.getElementById('medication-summary');
-            const restartButton = document.getElementById('restart-button');
-            const copyNursingNotesButton = document.getElementById('copy-nursing-notes-button');
-            const copyNotesButton = document.getElementById('copy-notes-button');
-            const copyMedsButton = document.getElementById('copy-meds-button');
-            const summaryListContent = document.getElementById('summary-list-content');
-            const backToMainButton = document.getElementById('back-to-main-button');
-            const deleteAllButton = document.getElementById('delete-all-button');
-            const errorMessageDiv = document.getElementById('error-message');
-
-            // --- App State ---
-            let recognition;
-            let transcriptionLog = [];
-            let currentProcedure = '';
-            let editingSummaryIndex = null; 
-            const SUMMARY_STORAGE_KEY = 'dailyProcedureSummaries';
-
-            const procedures = [
-                'TEE', 
-                'Definity Administration', 
-                'Lasix IV Administration', 
-                'Dobutamine Stress Echo',
-                'CHF Phone Call',
-                'ER assist',
-                'Bubble Study'
-            ];
-
-            // --- Speech Recognition Setup ---
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (SpeechRecognition) {
-                recognition = new SpeechRecognition();
-                recognition.continuous = true;
-                recognition.interimResults = false;
-                recognition.lang = 'en-US';
-
-                recognition.onresult = (event) => {
-                    let finalTranscript = '';
-                    for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            finalTranscript += event.results[i][0].transcript.trim() + '. ';
-                        }
-                    }
-                    if (finalTranscript) {
-                         const timestamp = new Date();
-                         const logEntry = { time: timestamp, note: finalTranscript.charAt(0).toUpperCase() + finalTranscript.slice(1) };
-                         transcriptionLog.push(logEntry);
-                         updateTranscriptionDisplay();
-                    }
+        // Modern JavaScript with better organization and performance
+        class ProcedureDictationApp {
+            constructor() {
+                this.state = {
+                    recognition: null,
+                    transcriptionLog: [],
+                    currentProcedure: '',
+                    editingSummaryIndex: null,
+                    isRecording: false
                 };
+
+                this.constants = {
+                    SUMMARY_STORAGE_KEY: 'dailyProcedureSummaries',
+                    FUNCTION_URL: '/api/process-transcript',
+                    PROCEDURES: [
+                        'TEE', 
+                        'Definity Administration', 
+                        'Lasix IV Administration', 
+                        'Dobutamine Stress Echo',
+                        'CHF Phone Call',
+                        'ER assist',
+                        'Bubble Study'
+                    ]
+                };
+
+                this.elements = {};
+                this.init();
+            }
+
+            init() {
+                this.cacheElements();
+                this.setupSpeechRecognition();
+                this.bindEvents();
+                this.initialize();
+            }
+
+            cacheElements() {
+                // Cache all DOM elements for better performance
+                const elementIds = [
+                    'selection-screen', 'transcription-screen', 'summary-screen', 'summary-list-screen',
+                    'procedure-list', 'view-todays-summary-button', 'procedure-title', 'transcription-output',
+                    'start-recording-button', 'finish-button', 'recording-indicator-div', 'summary-title',
+                    'loading-indicator', 'results-container', 'vitals-container', 'nursing-notes',
+                    'final-notes', 'medication-summary', 'restart-button', 'copy-nursing-notes-button',
+                    'copy-notes-button', 'copy-meds-button', 'summary-list-content', 'back-to-main-button',
+                    'delete-all-button', 'error-message', 'back-to-home-button', 'back-from-summary-button'
+                ];
+
+                elementIds.forEach(id => {
+                    this.elements[id] = document.getElementById(id);
+                });
+            }
+
+            setupSpeechRecognition() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 
-                recognition.onerror = (event) => {
-                    console.error("Speech recognition error:", event.error);
-                    if (recognition) {
-                        try { recognition.stop(); } catch (e) {}
-                        setTimeout(() => { try { recognition.start(); } catch (e) {} }, 500);
+                if (!SpeechRecognition) {
+                    this.showError('Speech recognition is not supported in this browser. Please use Google Chrome.');
+                    this.elements['procedure-list'].innerHTML = 
+                        '<p class="text-red-500 font-bold col-span-full text-center">Sorry, your browser does not support speech recognition. Please try Google Chrome.</p>';
+                    return;
+                }
+
+                this.state.recognition = new SpeechRecognition();
+                this.state.recognition.continuous = true;
+                this.state.recognition.interimResults = false;
+                this.state.recognition.lang = 'en-US';
+
+                this.state.recognition.onresult = this.handleSpeechResult.bind(this);
+                this.state.recognition.onerror = this.handleSpeechError.bind(this);
+                this.state.recognition.onend = this.handleSpeechEnd.bind(this);
+            }
+
+            handleSpeechResult(event) {
+                let finalTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript.trim() + '. ';
                     }
-                };
+                }
+                
+                if (finalTranscript) {
+                    const timestamp = new Date();
+                    const logEntry = { 
+                        time: timestamp, 
+                        note: finalTranscript.charAt(0).toUpperCase() + finalTranscript.slice(1) 
+                    };
+                    this.state.transcriptionLog.push(logEntry);
+                    this.updateTranscriptionDisplay();
+                }
+            }
 
-                recognition.onend = () => {
-                    if (recordingIndicatorDiv.classList.contains('hidden') === false) {
-                         setTimeout(() => { try { recognition.start(); } catch(e) {} }, 250);
+            handleSpeechError(event) {
+                console.error("Speech recognition error:", event.error);
+                if (this.state.recognition && this.state.isRecording) {
+                    try { 
+                        this.state.recognition.stop(); 
+                    } catch (e) {}
+                    setTimeout(() => { 
+                        try { 
+                            this.state.recognition.start(); 
+                        } catch (e) {} 
+                    }, 500);
+                }
+            }
+
+            handleSpeechEnd() {
+                if (this.state.isRecording) {
+                    setTimeout(() => { 
+                        try { 
+                            this.state.recognition.start(); 
+                        } catch(e) {} 
+                    }, 250);
+                }
+            }
+
+            bindEvents() {
+                // Use event delegation for better performance
+                this.elements['start-recording-button'].addEventListener('click', () => this.startRecording());
+                this.elements['finish-button'].addEventListener('click', () => this.finishProcedure());
+                this.elements['restart-button'].addEventListener('click', () => this.showScreen('selection-screen'));
+                this.elements['view-todays-summary-button'].addEventListener('click', () => this.showTodaysSummaries());
+                this.elements['back-to-main-button'].addEventListener('click', () => this.showScreen('selection-screen'));
+                this.elements['back-to-home-button'].addEventListener('click', () => this.goBackToHome());
+                this.elements['back-from-summary-button'].addEventListener('click', () => this.goBackToHome());
+                this.elements['delete-all-button'].addEventListener('click', () => this.deleteAllSummaries());
+
+                // Copy buttons
+                this.elements['copy-nursing-notes-button'].addEventListener('click', () => 
+                    this.copyToClipboard(this.elements['nursing-notes'].textContent, this.elements['copy-nursing-notes-button']));
+                this.elements['copy-notes-button'].addEventListener('click', () => 
+                    this.copyToClipboard(this.elements['final-notes'].textContent, this.elements['copy-notes-button']));
+                this.elements['copy-meds-button'].addEventListener('click', () => {
+                    const medsText = Array.from(this.elements['medication-summary'].querySelectorAll('li'))
+                        .map(li => li.textContent).join('\n');
+                    this.copyToClipboard(medsText || this.elements['medication-summary'].textContent, this.elements['copy-meds-button']);
+                });
+
+                // Event delegation for summary list actions
+                this.elements['summary-list-content'].addEventListener('click', (e) => this.handleSummaryListClick(e));
+            }
+
+            handleSummaryListClick(e) {
+                const card = e.target.closest('[data-index]');
+                if (!card) return;
+                
+                const index = parseInt(card.dataset.index, 10);
+
+                if (e.target.classList.contains('delete-btn')) {
+                    this.deleteSummary(index);
+                } else if (e.target.classList.contains('add-on-btn')) {
+                    this.addOnToSummary(index);
+                } else if (e.target.classList.contains('copy-summary-btn')) {
+                    this.copySummary(index, e.target);
+                }
+            }
+
+            showScreen(screenId) {
+                // Hide all screens
+                Object.values(this.elements).forEach(element => {
+                    if (element && element.classList.contains('screen')) {
+                        element.classList.remove('active');
                     }
-                };
-            } else {
-                document.getElementById('procedure-list').innerHTML = '<p class="text-red-500 font-bold col-span-full text-center">Sorry, your browser does not support speech recognition. Please try Google Chrome.</p>';
-            }
-            
-            // --- Functions ---
-
-            function initialize() {
-                clearOldSummaries();
-                procedureList.innerHTML = '';
-                procedures.forEach(proc => {
-                    const button = document.createElement('button');
-                    button.className = "bg-white hover:bg-blue-100 text-blue-700 font-semibold py-4 px-4 border border-blue-300 rounded-lg shadow-sm transition duration-300";
-                    button.textContent = proc;
-                    button.onclick = () => startProcedure(proc);
-                    procedureList.appendChild(button);
                 });
+                
+                // Show target screen
+                this.elements[screenId].classList.add('active');
             }
 
-            function showScreen(screenToShow) {
-                [selectionScreen, transcriptionScreen, summaryScreen, summaryListScreen].forEach(screen => {
-                    screen.classList.add('hidden');
-                });
-                screenToShow.classList.remove('hidden');
-            }
-            
-            function showError(message) {
-                errorMessageDiv.textContent = message;
-                errorMessageDiv.classList.remove('hidden');
+            showError(message, duration = 5000) {
+                this.elements['error-message'].textContent = message;
+                this.elements['error-message'].classList.remove('hidden');
+                
                 setTimeout(() => {
-                    errorMessageDiv.classList.add('hidden');
-                }, 5000); // Hide after 5 seconds
+                    this.elements['error-message'].classList.add('hidden');
+                }, duration);
             }
 
-            function startProcedure(proc, summaryIndex = null) {
-                currentProcedure = proc;
-                editingSummaryIndex = summaryIndex;
-                transcriptionLog = [];
+            initialize() {
+                this.clearOldSummaries();
+                this.renderProcedureList();
+            }
+
+            renderProcedureList() {
+                this.elements['procedure-list'].innerHTML = '';
+                
+                this.constants.PROCEDURES.forEach(proc => {
+                    const button = document.createElement('button');
+                    button.className = "btn btn-primary bg-white hover:bg-blue-100 text-blue-700 border border-blue-300";
+                    button.textContent = proc;
+                    button.setAttribute('aria-label', `Start ${proc} procedure`);
+                    button.addEventListener('click', () => this.startProcedure(proc));
+                    this.elements['procedure-list'].appendChild(button);
+                });
+            }
+
+            startProcedure(proc, summaryIndex = null) {
+                this.state.currentProcedure = proc;
+                this.state.editingSummaryIndex = summaryIndex;
+                this.state.transcriptionLog = [];
 
                 if (summaryIndex !== null) {
-                    const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
-                    transcriptionOutput.innerHTML = `<p class="text-gray-500 italic">Previous notes loaded. Ready to add on.</p>`;
-                    procedureTitle.textContent = `Add On: ${proc}`;
+                    const data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY));
+                    this.elements['transcription-output'].innerHTML = 
+                        '<p class="text-gray-500 italic">Previous notes loaded. Ready to add on.</p>';
+                    this.elements['procedure-title'].textContent = `Add On: ${proc}`;
                 } else {
-                    procedureTitle.textContent = proc;
-                    transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Press "Start Recording" to begin.</p>';
+                    this.elements['procedure-title'].textContent = proc;
+                    this.elements['transcription-output'].innerHTML = 
+                        '<p class="text-gray-500 italic">Press "Start Recording" to begin.</p>';
                 }
                 
-                summaryTitle.textContent = `${proc} Summary`;
-                showScreen(transcriptionScreen);
-                startRecordingButton.classList.remove('hidden');
-                finishButton.classList.add('hidden');
-                recordingIndicatorDiv.classList.add('hidden');
+                this.elements['summary-title'].textContent = `${proc} Summary`;
+                this.showScreen('transcription-screen');
+                this.elements['start-recording-button'].classList.remove('hidden');
+                this.elements['finish-button'].classList.add('hidden');
+                this.elements['recording-indicator-div'].classList.add('hidden');
             }
 
-            function startRecording() {
-                startRecordingButton.classList.add('hidden');
-                finishButton.classList.remove('hidden');
-                recordingIndicatorDiv.classList.remove('hidden');
+            startRecording() {
+                this.state.isRecording = true;
+                this.elements['start-recording-button'].classList.add('hidden');
+                this.elements['finish-button'].classList.remove('hidden');
+                this.elements['recording-indicator-div'].classList.remove('hidden');
                 
-                if(transcriptionLog.length === 0 && editingSummaryIndex === null) {
-                     transcriptionOutput.innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
+                if (this.state.transcriptionLog.length === 0 && this.state.editingSummaryIndex === null) {
+                    this.elements['transcription-output'].innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
                 }
 
-                if (recognition) {
-                    try { recognition.start(); } catch(e) { console.error("Recognition could not be started:", e); }
+                if (this.state.recognition) {
+                    try { 
+                        this.state.recognition.start(); 
+                    } catch(e) { 
+                        console.error("Recognition could not be started:", e); 
+                    }
                 }
             }
 
-            function updateTranscriptionDisplay() {
-                if (transcriptionLog.length === 0) return;
-                if(transcriptionLog.length === 1 && editingSummaryIndex === null) {
-                    transcriptionOutput.innerHTML = ''; // Clear the "listening" text
+            updateTranscriptionDisplay() {
+                if (this.state.transcriptionLog.length === 0) return;
+                
+                if (this.state.transcriptionLog.length === 1 && this.state.editingSummaryIndex === null) {
+                    this.elements['transcription-output'].innerHTML = '';
                 }
                 
-                const log = transcriptionLog[transcriptionLog.length - 1];
-                const p = document.createElement('p');
+                const log = this.state.transcriptionLog[this.state.transcriptionLog.length - 1];
+                const entry = document.createElement('div');
+                entry.className = 'transcription-entry';
+                
                 const timeString = log.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                p.innerHTML = `<strong class="text-blue-600">[${timeString}]</strong>: ${log.note}`;
-                transcriptionOutput.appendChild(p);
-                transcriptionOutput.scrollTop = transcriptionOutput.scrollHeight;
+                entry.innerHTML = `<span class="transcription-time">[${timeString}]</span>: ${log.note}`;
+                
+                this.elements['transcription-output'].appendChild(entry);
+                this.elements['transcription-output'].scrollTop = this.elements['transcription-output'].scrollHeight;
             }
 
-            async function finishProcedure() {
-                if (recognition) recognition.stop();
-                showScreen(summaryScreen);
-                loadingIndicator.classList.remove('hidden');
-                resultsContainer.classList.add('hidden');
-                vitalsContainer.classList.add('hidden');
+            async finishProcedure() {
+                this.state.isRecording = false;
+                if (this.state.recognition) this.state.recognition.stop();
+                
+                this.showScreen('summary-screen');
+                this.elements['loading-indicator'].classList.remove('hidden');
+                this.elements['results-container'].classList.add('hidden');
+                this.elements['vitals-container'].classList.add('hidden');
+                
                 let fullTranscript = '';
-                if (editingSummaryIndex !== null) {
-                    const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
-                    fullTranscript = data.summaries[editingSummaryIndex].rawTranscript + '\n';
+                if (this.state.editingSummaryIndex !== null) {
+                    const data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY));
+                    fullTranscript = data.summaries[this.state.editingSummaryIndex].rawTranscript + '\n';
                 }
-                fullTranscript += transcriptionLog.map(log => `[${log.time.toISOString()}] ${log.note}`).join('\n');
+                fullTranscript += this.state.transcriptionLog.map(log => 
+                    `[${log.time.toISOString()}] ${log.note}`).join('\n');
+                
                 try {
-                    const aiResponse = await processWithAI(fullTranscript, currentProcedure);
-                    if (!validateAIResponse(aiResponse)) throw new Error('AI returned incomplete or invalid data.');
-                    displayResults(aiResponse);
-                    saveSummary(aiResponse, fullTranscript);
+                    const aiResponse = await this.processWithAI(fullTranscript, this.state.currentProcedure);
+                    if (!this.validateAIResponse(aiResponse)) {
+                        throw new Error('AI returned incomplete or invalid data.');
+                    }
+                    this.displayResults(aiResponse);
+                    this.saveSummary(aiResponse, fullTranscript);
                 } catch (error) {
-                    showError('Error processing with AI: ' + error.message);
-                    finalNotes.textContent = `An error occurred. ${error.message}`;
-                    medicationSummary.textContent = "Could not be generated.";
-                    nursingNotes.textContent = "Could not be generated.";
+                    this.showError('Error processing with AI: ' + error.message);
+                    this.elements['final-notes'].textContent = `An error occurred. ${error.message}`;
+                    this.elements['medication-summary'].textContent = "Could not be generated.";
+                    this.elements['nursing-notes'].textContent = "Could not be generated.";
                 } finally {
-                    loadingIndicator.classList.add('hidden');
-                    resultsContainer.classList.remove('hidden');
+                    this.elements['loading-indicator'].classList.add('hidden');
+                    this.elements['results-container'].classList.remove('hidden');
                 }
             }
 
-            function validateAIResponse(data) {
+            validateAIResponse(data) {
                 if (!data) return false;
                 if (!data.nursingNotes || !data.procedureNotes || !Array.isArray(data.medicationSummary)) return false;
-                if (currentProcedure === 'TEE' && !data.vitalSigns) return false;
+                if (this.state.currentProcedure === 'TEE' && !data.vitalSigns) return false;
                 return true;
             }
 
-            async function processWithAI(transcript, procedure) {
+            async processWithAI(transcript, procedure) {
                 console.log("Sending transcript to Google Cloud Function for processing...");
                 
-                const functionUrl = 'https://procedure-dictation-backend-947482814203.northamerica-northeast2.run.app'; 
-
-                if (functionUrl === 'YOUR_GOOGLE_CLOUD_FUNCTION_URL_HERE') {
-                    throw new Error("Google Cloud Function URL is not set in index.html.");
+                if (this.constants.FUNCTION_URL === 'YOUR_GOOGLE_CLOUD_FUNCTION_URL_HERE') {
+                    throw new Error("API endpoint is not configured. Please set up your Netlify function.");
                 }
 
                 const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                 try {
-                    const response = await fetch(functionUrl, {
+                    const response = await fetch(this.constants.FUNCTION_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ transcript, procedure, timezone: userTimezone })
@@ -377,12 +740,19 @@
                 }
             }
 
-            function displayResults(data) {
-                [copyNotesButton, copyMedsButton, copyNursingNotesButton].forEach(btn => btn.textContent = 'Copy');
-                nursingNotes.textContent = data.nursingNotes || "No nursing notes generated.";
-                finalNotes.textContent = data.procedureNotes || "No procedure log generated.";
+            displayResults(data) {
+                // Reset copy buttons
+                [this.elements['copy-notes-button'], this.elements['copy-meds-button'], this.elements['copy-nursing-notes-button']]
+                    .forEach(btn => {
+                        btn.textContent = 'Copy';
+                        btn.classList.remove('bg-green-500', 'text-white');
+                    });
+
+                this.elements['nursing-notes'].textContent = data.nursingNotes || "No nursing notes generated.";
+                this.elements['final-notes'].textContent = data.procedureNotes || "No procedure log generated.";
                 
-                medicationSummary.innerHTML = '';
+                // Display medication summary
+                this.elements['medication-summary'].innerHTML = '';
                 if (data.medicationSummary && data.medicationSummary.length > 0) {
                     const ul = document.createElement('ul');
                     ul.className = 'list-disc pl-5';
@@ -391,24 +761,31 @@
                         li.textContent = `${med.medication} (administered around ${med.time})`;
                         ul.appendChild(li);
                     });
-                    medicationSummary.appendChild(ul);
+                    this.elements['medication-summary'].appendChild(ul);
                 } else {
-                    medicationSummary.textContent = "No medications identified.";
+                    this.elements['medication-summary'].textContent = "No medications identified.";
                 }
 
+                // Display vital signs if available
                 if (data.vitalSigns) {
-                    vitalsContainer.innerHTML = buildVitalsHtml(data.vitalSigns);
-                    vitalsContainer.classList.remove('hidden');
+                    this.elements['vitals-container'].innerHTML = this.buildVitalsHtml(data.vitalSigns);
+                    this.elements['vitals-container'].classList.remove('hidden');
                 } else {
-                    vitalsContainer.classList.add('hidden');
+                    this.elements['vitals-container'].classList.add('hidden');
                 }
             }
             
-            function buildVitalsHtml(vitalsData) {
+            buildVitalsHtml(vitalsData) {
                 let html = '';
+                
+                // Pre-procedure vitals
                 let preVitals = vitalsData.pre;
                 if (preVitals && typeof preVitals === 'string') {
-                    try { preVitals = JSON.parse(preVitals); } catch (e) { preVitals = {}; }
+                    try { 
+                        preVitals = JSON.parse(preVitals); 
+                    } catch (e) { 
+                        preVitals = {}; 
+                    }
                 }
 
                 if (preVitals && Object.values(preVitals).some(v => v && v !== 'N/A')) {
@@ -418,13 +795,18 @@
                     html += `</div>`;
                 }
 
+                // Intra-procedure vitals
                 if (vitalsData.intra && vitalsData.intra.length > 0) {
                     html += `<h3 class="text-xl font-semibold text-gray-800 border-b pb-2 mb-4 mt-8">Intra-Procedure Vital Signs</h3>`;
                     html += `<div class="p-3 bg-gray-50 rounded space-y-1">`;
                     vitalsData.intra.forEach(row => {
                         let intraRow = row;
                         if (typeof intraRow === 'string') {
-                            try { intraRow = JSON.parse(intraRow); } catch (e) { intraRow = {}; }
+                            try { 
+                                intraRow = JSON.parse(intraRow); 
+                            } catch (e) { 
+                                intraRow = {}; 
+                            }
                         }
                         html += `<div>`;
                         html += `<strong>Time:</strong> ${intraRow.time || 'N/A'} | <strong>T:</strong> ${intraRow.temp || 'N/A'} | <strong>BP:</strong> ${intraRow.bp || 'N/A'} | <strong>HR:</strong> ${intraRow.hr || 'N/A'} | <strong>Rhythm:</strong> ${intraRow.rhythm || 'N/A'} | <strong>RR:</strong> ${intraRow.rr || 'N/A'} | <strong>SpO₂:</strong> ${intraRow.o2sat || 'N/A'}`;
@@ -435,12 +817,15 @@
                 return html;
             }
 
-            function saveSummary(summaryData, rawTranscript) {
+            saveSummary(summaryData, rawTranscript) {
                 const today = new Date().toISOString().split('T')[0];
-                let data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY)) || { date: today, summaries: [] };
+                let data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY)) || { 
+                    date: today, 
+                    summaries: [] 
+                };
                 
                 const newSummary = {
-                    procedure: currentProcedure,
+                    procedure: this.state.currentProcedure,
                     nursingNotes: summaryData.nursingNotes,
                     notes: summaryData.procedureNotes,
                     meds: summaryData.medicationSummary,
@@ -448,49 +833,80 @@
                     rawTranscript: rawTranscript
                 };
 
-                if (editingSummaryIndex !== null) {
-                    data.summaries[editingSummaryIndex] = newSummary;
+                if (this.state.editingSummaryIndex !== null) {
+                    data.summaries[this.state.editingSummaryIndex] = newSummary;
                 } else {
                     data.summaries.push(newSummary);
                 }
 
-                localStorage.setItem(SUMMARY_STORAGE_KEY, JSON.stringify(data));
+                localStorage.setItem(this.constants.SUMMARY_STORAGE_KEY, JSON.stringify(data));
             }
 
-            function loadAndDisplaySummaries() {
-                const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
-                summaryListContent.innerHTML = '';
+            showTodaysSummaries() {
+                this.loadAndDisplaySummaries();
+                this.showScreen('summary-list-screen');
+            }
+
+            goBackToHome() {
+                // Stop recording if active
+                if (this.state.isRecording && this.state.recognition) {
+                    this.state.recognition.stop();
+                    this.state.isRecording = false;
+                }
+                
+                // Reset state
+                this.state.transcriptionLog = [];
+                this.state.currentProcedure = '';
+                this.state.editingSummaryIndex = null;
+                
+                // Reset UI
+                this.elements['transcription-output'].innerHTML = '<p class="text-gray-500 italic">Press "Start Recording" to begin.</p>';
+                this.elements['start-recording-button'].classList.remove('hidden');
+                this.elements['finish-button'].classList.add('hidden');
+                this.elements['recording-indicator-div'].classList.add('hidden');
+                
+                // Go back to home screen
+                this.showScreen('selection-screen');
+            }
+
+            loadAndDisplaySummaries() {
+                const data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY));
+                this.elements['summary-list-content'].innerHTML = '';
 
                 if (!data || data.summaries.length === 0) {
-                    summaryListContent.innerHTML = '<p class="text-center text-gray-500">No summaries have been saved for today.</p>';
-                    deleteAllButton.classList.add('hidden');
+                    this.elements['summary-list-content'].innerHTML = 
+                        '<p class="text-center text-gray-500">No summaries have been saved for today.</p>';
+                    this.elements['delete-all-button'].classList.add('hidden');
                     return;
                 }
-                deleteAllButton.classList.remove('hidden');
+                
+                this.elements['delete-all-button'].classList.remove('hidden');
 
                 data.summaries.forEach((summary, index) => {
                     const patientNum = index + 1;
                     const container = document.createElement('div');
-                    container.className = 'bg-white p-6 rounded-lg shadow-md border';
+                    container.className = 'summary-card p-6';
                     container.dataset.index = index;
 
                     let medsHtml = '<p class="text-gray-500">No medications recorded.</p>';
                     if (summary.meds && summary.meds.length > 0) {
-                        medsHtml = '<ul class="list-disc pl-5">' + summary.meds.map(med => `<li>${med.medication} (administered around ${med.time})</li>`).join('') + '</ul>';
+                        medsHtml = '<ul class="list-disc pl-5">' + 
+                            summary.meds.map(med => `<li>${med.medication} (administered around ${med.time})</li>`).join('') + 
+                            '</ul>';
                     }
                     
                     let vitalsHtml = '';
                     if (summary.vitals) {
-                        vitalsHtml = `<div class="mt-4">${buildVitalsHtml(summary.vitals)}</div>`;
+                        vitalsHtml = `<div class="mt-4">${this.buildVitalsHtml(summary.vitals)}</div>`;
                     }
 
                     container.innerHTML = `
                         <div class="flex justify-between items-start">
                             <h3 class="text-xl font-bold text-gray-800 mb-2">Patient ${patientNum}: ${summary.procedure}</h3>
-                            <div class="flex gap-2">
-                                <button class="add-on-btn text-sm bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded-md">Add On</button>
-                                <button class="copy-summary-btn text-sm bg-green-500 hover:bg-green-600 text-white font-semibold py-1 px-3 rounded-md">Copy</button>
-                                <button class="delete-btn text-sm bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md">Delete</button>
+                            <div class="flex gap-2 summary-actions">
+                                <button class="add-on-btn btn btn-warning text-sm">Add On</button>
+                                <button class="copy-summary-btn btn btn-success text-sm">Copy</button>
+                                <button class="delete-btn btn btn-danger text-sm">Delete</button>
                             </div>
                         </div>
                         ${vitalsHtml}
@@ -507,40 +923,93 @@
                             <div class="p-3 bg-gray-50 rounded mt-1 text-sm">${medsHtml}</div>
                         </div>
                     `;
-                    summaryListContent.appendChild(container);
+                    this.elements['summary-list-content'].appendChild(container);
                 });
             }
 
-            function deleteSummary(index) {
-                let data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
-                data.summaries.splice(index, 1);
-                localStorage.setItem(SUMMARY_STORAGE_KEY, JSON.stringify(data));
-                loadAndDisplaySummaries();
-            }
-
-            function deleteAllSummaries() {
-                if (confirm("Are you sure you want to delete all summaries for today? This cannot be undone.")) {
-                    localStorage.removeItem(SUMMARY_STORAGE_KEY);
-                    loadAndDisplaySummaries();
+            deleteSummary(index) {
+                if (confirm(`Are you sure you want to delete the summary for Patient ${index + 1}?`)) {
+                    let data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY));
+                    data.summaries.splice(index, 1);
+                    localStorage.setItem(this.constants.SUMMARY_STORAGE_KEY, JSON.stringify(data));
+                    this.loadAndDisplaySummaries();
                 }
             }
 
-            function clearOldSummaries() {
-                const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
+            addOnToSummary(index) {
+                const data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY));
+                const procedure = data.summaries[index].procedure;
+                this.startProcedure(procedure, index);
+            }
+
+            copySummary(index, button) {
+                const data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY));
+                const summary = data.summaries[index];
+                let textToCopy = `Patient ${index + 1}: ${summary.procedure}\n\n`;
+
+                if (summary.vitals) {
+                    const preVitals = summary.vitals.pre;
+                    if (preVitals && Object.values(preVitals).some(v => v && v !== 'N/A')) {
+                        textToCopy += "Pre-Procedure Vital Signs:\n";
+                        textToCopy += `Time: ${preVitals.time || 'N/A'} | T: ${preVitals.temp || 'N/A'} | BP: ${preVitals.bp || 'N/A'} | HR: ${preVitals.hr || 'N/A'} | Rhythm: ${preVitals.rhythm || 'N/A'} | RR: ${preVitals.rr || 'N/A'} | SpO₂: ${preVitals.o2sat || 'N/A'}\n\n`;
+                    }
+                    const intraVitals = summary.vitals.intra;
+                    if (intraVitals && intraVitals.length > 0) {
+                        textToCopy += "Intra-Procedure Vital Signs:\n";
+                        intraVitals.forEach(row => {
+                            textToCopy += `Time: ${row.time || 'N/A'} | T: ${row.temp || 'N/A'} | BP: ${row.bp || 'N/A'} | HR: ${row.hr || 'N/A'} | Rhythm: ${row.rhythm || 'N/A'} | RR: ${row.rr || 'N/A'} | SpO₂: ${row.o2sat || 'N/A'}\n`;
+                        });
+                        textToCopy += "\n";
+                    }
+                }
+
+                textToCopy += `Nursing Notes (DAR):\n${summary.nursingNotes}\n\n`;
+                textToCopy += `Procedure Log:\n${summary.notes}\n\n`;
+                textToCopy += `Medication Summary:\n`;
+                if (summary.meds && summary.meds.length > 0) {
+                    summary.meds.forEach(med => {
+                        textToCopy += `- ${med.medication} (administered around ${med.time})\n`;
+                    });
+                } else {
+                    textToCopy += "No medications recorded.\n";
+                }
+                this.copyToClipboard(textToCopy, button);
+            }
+
+            deleteAllSummaries() {
+                if (confirm("Are you sure you want to delete all summaries for today? This cannot be undone.")) {
+                    localStorage.removeItem(this.constants.SUMMARY_STORAGE_KEY);
+                    this.loadAndDisplaySummaries();
+                }
+            }
+
+            clearOldSummaries() {
+                const data = JSON.parse(localStorage.getItem(this.constants.SUMMARY_STORAGE_KEY));
                 const today = new Date().toISOString().split('T')[0];
                 if (data && data.date !== today) {
-                    localStorage.removeItem(SUMMARY_STORAGE_KEY);
+                    localStorage.removeItem(this.constants.SUMMARY_STORAGE_KEY);
                     console.log("Cleared summaries from previous day.");
                 }
             }
 
-            function copyToClipboard(text, button) {
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                document.body.appendChild(textArea);
-                textArea.select();
+            async copyToClipboard(text, button) {
                 try {
-                    document.execCommand('copy');
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(text);
+                    } else {
+                        // Fallback for older browsers
+                        const textArea = document.createElement('textarea');
+                        textArea.value = text;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        textArea.style.top = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                    }
+                    
                     button.textContent = 'Copied!';
                     button.classList.add('bg-green-500', 'text-white');
                     setTimeout(() => {
@@ -550,83 +1019,15 @@
                 } catch (err) {
                     console.error('Failed to copy text: ', err);
                     button.textContent = 'Error';
+                    this.showError('Failed to copy to clipboard');
                 }
-                document.body.removeChild(textArea);
             }
-            
-            // --- Event Listeners ---
-            startRecordingButton.addEventListener('click', startRecording);
-            finishButton.addEventListener('click', finishProcedure);
-            restartButton.addEventListener('click', () => showScreen(selectionScreen));
-            viewTodaysSummaryButton.addEventListener('click', () => {
-                loadAndDisplaySummaries();
-                showScreen(summaryListScreen);
-            });
-            backToMainButton.addEventListener('click', () => showScreen(selectionScreen));
-            deleteAllButton.addEventListener('click', deleteAllSummaries);
+        }
 
-            // --- Editing summaries ---
-            summaryListContent.addEventListener('click', (e) => {
-                const card = e.target.closest('[data-index]');
-                if (!card) return;
-                const index = parseInt(card.dataset.index, 10);
-
-                if (e.target.classList.contains('delete-btn')) {
-                    if (confirm(`Are you sure you want to delete the summary for Patient ${index + 1}?`)) {
-                        deleteSummary(index);
-                    }
-                }
-                if (e.target.classList.contains('add-on-btn')) {
-                    const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
-                    const procedure = data.summaries[index].procedure;
-                    startProcedure(procedure, index);
-                }
-                if (e.target.classList.contains('copy-summary-btn')) {
-                    const data = JSON.parse(localStorage.getItem(SUMMARY_STORAGE_KEY));
-                    const summary = data.summaries[index];
-                    let textToCopy = `Patient ${index + 1}: ${summary.procedure}\n\n`;
-
-                    if (summary.vitals) {
-                        const preVitals = summary.vitals.pre;
-                        if (preVitals && Object.values(preVitals).some(v => v && v !== 'N/A')) {
-                            textToCopy += "Pre-Procedure Vital Signs:\n";
-                            textToCopy += `Time: ${preVitals.time || 'N/A'} | T: ${preVitals.temp || 'N/A'} | BP: ${preVitals.bp || 'N/A'} | HR: ${preVitals.hr || 'N/A'} | Rhythm: ${preVitals.rhythm || 'N/A'} | RR: ${preVitals.rr || 'N/A'} | SpO₂: ${preVitals.o2sat || 'N/A'}\n\n`;
-                        }
-                        const intraVitals = summary.vitals.intra;
-                        if (intraVitals && intraVitals.length > 0) {
-                            textToCopy += "Intra-Procedure Vital Signs:\n";
-                            intraVitals.forEach(row => {
-                                textToCopy += `Time: ${row.time || 'N/A'} | T: ${row.temp || 'N/A'} | BP: ${row.bp || 'N/A'} | HR: ${row.hr || 'N/A'} | Rhythm: ${row.rhythm || 'N/A'} | RR: ${row.rr || 'N/A'} | SpO₂: ${row.o2sat || 'N/A'}\n`;
-                            });
-                            textToCopy += "\n";
-                        }
-                    }
-
-                    textToCopy += `Nursing Notes (DAR):\n${summary.nursingNotes}\n\n`;
-                    textToCopy += `Procedure Log:\n${summary.notes}\n\n`;
-                    textToCopy += `Medication Summary:\n`;
-                    if (summary.meds && summary.meds.length > 0) {
-                        summary.meds.forEach(med => {
-                            textToCopy += `- ${med.medication} (administered around ${med.time})\n`;
-                        });
-                    } else {
-                        textToCopy += "No medications recorded.\n";
-                    }
-                    copyToClipboard(textToCopy, e.target);
-                }
-            });
-
-            copyNursingNotesButton.addEventListener('click', () => copyToClipboard(nursingNotes.textContent, copyNursingNotesButton));
-            copyNotesButton.addEventListener('click', () => copyToClipboard(finalNotes.textContent, copyNotesButton));
-            copyMedsButton.addEventListener('click', () => {
-                const medsText = Array.from(medicationSummary.querySelectorAll('li')).map(li => li.textContent).join('\n');
-                copyToClipboard(medsText || medicationSummary.textContent, copyMedsButton);
-            });
-
-            // --- Initialize App ---
-            initialize();
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new ProcedureDictationApp();
         });
     </script>
-
 </body>
 </html>
