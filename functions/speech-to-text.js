@@ -60,30 +60,17 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Deepgram request configuration for real-time medical transcription
+    // Deepgram request configuration - simplified and corrected
     const deepgramConfig = {
       model: 'nova-2', // Latest and most accurate model
       language: languageCode,
-      encoding: encoding,
-      sample_rate: sampleRateHertz,
+      encoding: 'webm', // Force webm encoding for consistency
+      sample_rate: 48000, // Force 48kHz for better quality
       punctuate: true,
-      diarize: false,
       smart_format: true,
       numerals: true,
-      profanity_filter: false,
-      redact: false,
-      search: [],
-      replace: [],
-      keywords: [],
-      detect_language: false,
-      multichannel: false,
-      alternatives: 1,
       interim_results: false, // Set to false for final results only
-      endpointing: 200, // End of speech detection
-      vad_events: false,
-      vad_turnoff: 500,
-      max_alternatives: 1,
-      filler_words: false
+      endpointing: 200 // End of speech detection
     };
 
     console.log('Making request to Deepgram API...');
