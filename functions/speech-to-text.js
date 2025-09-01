@@ -90,13 +90,14 @@ exports.handler = async (event, context) => {
     console.log('API Key present:', !!deepgramApiKey);
     console.log('Request payload size:', JSON.stringify(deepgramConfig).length);
     
-    // Deepgram expects the audio data as a buffer in the request body
-    // The audioData is base64 encoded, so we need to decode it first
-    const audioBuffer = Buffer.from(audioData, 'base64');
+    // Deepgram supports JSON payloads with base64 audio data
+    const requestBody = {
+      buffer: audioData // Send base64 encoded audio data
+    };
     
     console.log('Audio data type:', typeof audioData);
     console.log('Audio data length:', audioData.length);
-    console.log('Decoded buffer size:', audioBuffer.length);
+    console.log('Request body:', { buffer: 'base64_audio_data...' });
 
     // Build query string for Deepgram configuration
     const queryParams = new URLSearchParams({
@@ -118,9 +119,9 @@ exports.handler = async (event, context) => {
       method: 'POST',
       headers: {
         'Authorization': `Token ${deepgramApiKey}`,
-        'Content-Type': 'audio/webm', // Send as audio content type
+        'Content-Type': 'application/json', // Send as JSON as per Deepgram docs
       },
-      body: audioBuffer // Send the raw audio buffer, not JSON
+      body: JSON.stringify(requestBody)
     });
 
     console.log('Deepgram response status:', response.status);
