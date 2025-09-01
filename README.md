@@ -21,6 +21,12 @@ npm install
 2. Create a new API key
 3. Copy the key (you'll need it for step 4)
 
+### 2.5. Get Google Cloud Speech-to-Text API Key (Optional but Recommended)
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Enable the "Cloud Speech-to-Text API"
+3. Create a service account and download the JSON credentials
+4. Or use the same API key from step 2 (if it has Speech-to-Text permissions)
+
 ### 3. Deploy to Netlify
 1. Push your code to GitHub
 2. Connect your repository to Netlify
@@ -29,9 +35,11 @@ npm install
 ### 4. Set Environment Variables in Netlify
 1. Go to your Netlify dashboard
 2. Navigate to **Site settings** → **Environment variables**
-3. Add the following variable:
+3. Add the following variables:
    - **Key**: `GOOGLE_AI_API_KEY`
    - **Value**: Your Google AI API key from step 2
+   - **Key**: `GOOGLE_CREDENTIALS` (optional, for better Speech-to-Text)
+   - **Value**: Your Google Cloud service account JSON (if using service account)
 
 ### 5. Test the Application
 1. Visit your deployed Netlify site
@@ -87,6 +95,7 @@ netlify dev
 
 - **Netlify Functions**: Free tier includes 125,000 requests/month
 - **Google AI API**: Free tier includes 15 requests/minute, then pay per use
+- **Google Speech-to-Text API**: Free tier includes 60 minutes/month, then $0.006 per 15 seconds
 - **No hidden costs** - you control all API usage
 
 ## 🚨 Important Notes

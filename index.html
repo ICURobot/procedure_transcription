@@ -413,11 +413,13 @@
         class ProcedureDictationApp {
             constructor() {
                 this.state = {
-                    recognition: null,
+                    mediaRecorder: null,
+                    audioChunks: [],
                     transcriptionLog: [],
                     currentProcedure: '',
                     editingSummaryIndex: null,
-                    isRecording: false
+                    isRecording: false,
+                    stream: null
                 };
 
                 this.constants = {
@@ -440,7 +442,6 @@
 
             init() {
                 this.cacheElements();
-                this.setupSpeechRecognition();
                 this.bindEvents();
                 this.initialize();
             }
@@ -462,68 +463,90 @@
                 });
             }
 
-            setupSpeechRecognition() {
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                
-                if (!SpeechRecognition) {
-                    this.showError('Speech recognition is not supported in this browser. Please use Google Chrome.');
-                    this.elements['procedure-list'].innerHTML = 
-                        '<p class="text-red-500 font-bold col-span-full text-center">Sorry, your browser does not support speech recognition. Please try Google Chrome.</p>';
-                    return;
-                }
-
-                this.state.recognition = new SpeechRecognition();
-                this.state.recognition.continuous = true;
-                this.state.recognition.interimResults = false;
-                this.state.recognition.lang = 'en-US';
-
-                this.state.recognition.onresult = this.handleSpeechResult.bind(this);
-                this.state.recognition.onerror = this.handleSpeechError.bind(this);
-                this.state.recognition.onend = this.handleSpeechEnd.bind(this);
-            }
-
-            handleSpeechResult(event) {
-                let finalTranscript = '';
-                
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript.trim() + '. ';
-                    }
-                }
-                
-                if (finalTranscript) {
-                    const timestamp = new Date();
-                    const logEntry = { 
-                        time: timestamp, 
-                        note: finalTranscript.charAt(0).toUpperCase() + finalTranscript.slice(1) 
+            async setupMediaRecorder() {
+                try {
+                    this.state.stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            sampleRate: 48000,
+                            channelCount: 1,
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true
+                        } 
+                    });
+                    
+                    this.state.mediaRecorder = new MediaRecorder(this.state.stream, {
+                        mimeType: 'audio/webm;codecs=opus'
+                    });
+                    
+                    this.state.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.state.audioChunks.push(event.data);
+                        }
                     };
-                    this.state.transcriptionLog.push(logEntry);
-                    this.updateTranscriptionDisplay();
+                    
+                    this.state.mediaRecorder.onstop = () => {
+                        this.processAudioChunk();
+                    };
+                    
+                } catch (error) {
+                    console.error('Error setting up media recorder:', error);
+                    this.showError('Could not access microphone. Please check permissions.');
                 }
             }
 
-            handleSpeechError(event) {
-                console.error("Speech recognition error:", event.error);
-                if (this.state.recognition && this.state.isRecording) {
-                    try { 
-                        this.state.recognition.stop(); 
-                    } catch (e) {}
-                    setTimeout(() => { 
-                        try { 
-                            this.state.recognition.start(); 
-                        } catch (e) {} 
-                    }, 500);
+            async processAudioChunk() {
+                if (this.state.audioChunks.length === 0) return;
+                
+                const audioBlob = new Blob(this.state.audioChunks, { type: 'audio/webm;codecs=opus' });
+                this.state.audioChunks = [];
+                
+                try {
+                    const base64Audio = await this.blobToBase64(audioBlob);
+                    const response = await fetch('/api/speech-to-text', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            audioData: base64Audio,
+                            encoding: 'WEBM_OPUS',
+                            sampleRateHertz: 48000,
+                            languageCode: 'en-US'
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    if (result.transcript && result.transcript.trim()) {
+                        const timestamp = new Date();
+                        const logEntry = { 
+                            time: timestamp, 
+                            note: result.transcript.charAt(0).toUpperCase() + result.transcript.slice(1),
+                            confidence: result.confidence
+                        };
+                        this.state.transcriptionLog.push(logEntry);
+                        this.updateTranscriptionDisplay();
+                    }
+                    
+                } catch (error) {
+                    console.error('Error processing audio:', error);
+                    this.showError('Failed to process speech. Please try again.');
                 }
             }
 
-            handleSpeechEnd() {
-                if (this.state.isRecording) {
-                    setTimeout(() => { 
-                        try { 
-                            this.state.recognition.start(); 
-                        } catch(e) {} 
-                    }, 250);
-                }
+            blobToBase64(blob) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const base64 = reader.result.split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
             }
 
             bindEvents() {
@@ -629,7 +652,7 @@
                 this.elements['recording-indicator-div'].classList.add('hidden');
             }
 
-            startRecording() {
+            async startRecording() {
                 this.state.isRecording = true;
                 this.elements['start-recording-button'].classList.add('hidden');
                 this.elements['finish-button'].classList.remove('hidden');
@@ -639,12 +662,13 @@
                     this.elements['transcription-output'].innerHTML = '<p class="text-gray-500 italic">Listening...</p>';
                 }
 
-                if (this.state.recognition) {
-                    try { 
-                        this.state.recognition.start(); 
-                    } catch(e) { 
-                        console.error("Recognition could not be started:", e); 
-                    }
+                // Setup media recorder if not already done
+                if (!this.state.mediaRecorder) {
+                    await this.setupMediaRecorder();
+                }
+
+                if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'inactive') {
+                    this.state.mediaRecorder.start(3000); // Record in 3-second chunks
                 }
             }
 
@@ -668,7 +692,12 @@
 
             async finishProcedure() {
                 this.state.isRecording = false;
-                if (this.state.recognition) this.state.recognition.stop();
+                if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'recording') {
+                    this.state.mediaRecorder.stop();
+                }
+                if (this.state.stream) {
+                    this.state.stream.getTracks().forEach(track => track.stop());
+                }
                 
                 this.showScreen('summary-screen');
                 this.elements['loading-indicator'].classList.remove('hidden');
@@ -849,8 +878,13 @@
 
             goBackToHome() {
                 // Stop recording if active
-                if (this.state.isRecording && this.state.recognition) {
-                    this.state.recognition.stop();
+                if (this.state.isRecording) {
+                    if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'recording') {
+                        this.state.mediaRecorder.stop();
+                    }
+                    if (this.state.stream) {
+                        this.state.stream.getTracks().forEach(track => track.stop());
+                    }
                     this.state.isRecording = false;
                 }
                 
