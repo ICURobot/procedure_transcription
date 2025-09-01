@@ -16,13 +16,34 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    console.log('Speech-to-text function called');
+    console.log('Request body length:', event.body ? event.body.length : 'undefined');
+    
     const { audioData, encoding = 'WEBM_OPUS', sampleRateHertz = 48000, languageCode = 'en-US' } = JSON.parse(event.body);
 
+    console.log('Audio data length:', audioData ? audioData.length : 'undefined');
+    console.log('Encoding:', encoding);
+    console.log('Sample rate:', sampleRateHertz);
+    console.log('Language:', languageCode);
+
     if (!audioData) {
+      console.log('No audio data provided');
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({ error: 'No audio data provided' })
+      };
+    }
+
+    // Check payload size (Netlify Functions have 6MB limit)
+    const payloadSize = event.body.length;
+    console.log('Total payload size:', payloadSize, 'bytes');
+    if (payloadSize > 6 * 1024 * 1024) {
+      console.log('Payload too large:', payloadSize, 'bytes');
+      return {
+        statusCode: 413,
+        headers,
+        body: JSON.stringify({ error: 'Payload too large. Maximum 6MB allowed.' })
       };
     }
 
@@ -46,6 +67,7 @@ exports.handler = async (event, context) => {
     // Use Google's REST API directly
     console.log('Making request to Google Speech-to-Text API...');
     console.log('API Key present:', !!process.env.GOOGLE_AI_API_KEY);
+    console.log('Request payload size:', JSON.stringify(request).length);
     
     const response = await fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${process.env.GOOGLE_AI_API_KEY}`, {
       method: 'POST',
