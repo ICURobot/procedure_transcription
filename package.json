@@ -8,8 +8,7 @@
     "build": "echo 'No build step needed'"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.2.1",
-    "@google-cloud/speech": "^6.0.0"
+    "@google/generative-ai": "^0.2.1"
   },
   "devDependencies": {
     "@netlify/functions": "^2.0.0"

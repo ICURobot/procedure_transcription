@@ -1,11 +1,3 @@
-const speech = require('@google-cloud/speech');
-
-// Initialize Google Cloud Speech client
-const speechClient = new speech.SpeechClient({
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS || undefined,
-  credentials: process.env.GOOGLE_CREDENTIALS ? JSON.parse(process.env.GOOGLE_CREDENTIALS) : undefined,
-});
-
 exports.handler = async (event, context) => {
   // Enable CORS
   const headers = {
@@ -34,10 +26,7 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Convert base64 audio data to buffer
-    const audioBuffer = Buffer.from(audioData, 'base64');
-
-    // Configure the request
+    // Configure the request for Google Speech-to-Text REST API
     const request = {
       audio: {
         content: audioData
@@ -54,16 +43,47 @@ exports.handler = async (event, context) => {
       }
     };
 
-    // Perform the transcription
-    const [response] = await speechClient.recognize(request);
+    // Use Google's REST API directly
+    console.log('Making request to Google Speech-to-Text API...');
+    console.log('API Key present:', !!process.env.GOOGLE_AI_API_KEY);
     
-    const transcription = response.results
+    const response = await fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${process.env.GOOGLE_AI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request)
+    });
+
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Speech API error:', errorData);
+      throw new Error(`Speech API error: ${response.status} - ${errorData}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.results || result.results.length === 0) {
+      return {
+        statusCode: 200,
+        headers,
+        body: JSON.stringify({
+          transcript: '',
+          confidence: 0,
+          isFinal: true
+        })
+      };
+    }
+
+    const transcription = result.results
       .map(result => result.alternatives[0].transcript)
       .join('\n');
 
-    const confidence = response.results
+    const confidence = result.results
       .map(result => result.alternatives[0].confidence)
-      .reduce((a, b) => a + b, 0) / response.results.length;
+      .reduce((a, b) => a + b, 0) / result.results.length;
 
     return {
       statusCode: 200,
