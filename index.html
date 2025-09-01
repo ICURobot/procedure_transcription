@@ -520,7 +520,7 @@
                     const base64Audio = await this.blobToBase64(audioBlob);
                     console.log('Sending audio chunk to speech-to-text API...');
                     
-                    const response = await fetch('/api/speech-to-text', {
+                    const response = await fetch('/api/speech-to-text-live', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

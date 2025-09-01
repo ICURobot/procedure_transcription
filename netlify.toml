@@ -12,3 +12,9 @@
   from = "/api/speech-to-text"
   to = "/.netlify/functions/speech-to-text"
   status = 200
+
+# Specific redirect for speech-to-text-live
+[[redirects]]
+  from = "/api/speech-to-text-live"
+  to = "/.netlify/functions/speech-to-text-live"
+  status = 200
