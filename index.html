@@ -480,12 +480,14 @@
                     });
                     
                     this.state.mediaRecorder.ondataavailable = (event) => {
+                        console.log('Data available, size:', event.data.size);
                         if (event.data.size > 0) {
                             this.state.audioChunks.push(event.data);
                         }
                     };
                     
                     this.state.mediaRecorder.onstop = () => {
+                        console.log('MediaRecorder stopped, processing final chunk');
                         this.processAudioChunk();
                     };
                     
@@ -501,8 +503,11 @@
                 const audioBlob = new Blob(this.state.audioChunks, { type: 'audio/webm;codecs=opus' });
                 this.state.audioChunks = [];
                 
+                console.log('Processing audio chunk, size:', audioBlob.size, 'bytes');
+                
                 try {
                     const base64Audio = await this.blobToBase64(audioBlob);
+                    console.log('Sending audio to speech-to-text API...');
                     const response = await fetch('/api/speech-to-text', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -519,6 +524,7 @@
                     }
                     
                     const result = await response.json();
+                    console.log('Speech-to-text response:', result);
                     
                     if (result.transcript && result.transcript.trim()) {
                         const timestamp = new Date();
@@ -668,7 +674,9 @@
                 }
 
                 if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'inactive') {
+                    console.log('Starting MediaRecorder...');
                     this.state.mediaRecorder.start(3000); // Record in 3-second chunks
+                    console.log('MediaRecorder started');
                 }
             }
 
