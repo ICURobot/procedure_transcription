@@ -83,20 +83,6 @@ exports.handler = async (event, context) => {
       vad_events: false,
       vad_turnoff: 500,
       max_alternatives: 1,
-      filler_words: false,
-      profanity_filter: false,
-      redact: false,
-      search: [],
-      replace: [],
-      keywords: [],
-      detect_language: false,
-      multichannel: false,
-      alternatives: 1,
-      interim_results: false,
-      endpointing: 200,
-      vad_events: false,
-      vad_turnoff: 500,
-      max_alternatives: 1,
       filler_words: false
     };
 
@@ -104,16 +90,37 @@ exports.handler = async (event, context) => {
     console.log('API Key present:', !!deepgramApiKey);
     console.log('Request payload size:', JSON.stringify(deepgramConfig).length);
     
-    const response = await fetch(deepgramUrl, {
+    // Deepgram expects the audio data as a buffer in the request body
+    // The audioData is base64 encoded, so we need to decode it first
+    const audioBuffer = Buffer.from(audioData, 'base64');
+    
+    console.log('Audio data type:', typeof audioData);
+    console.log('Audio data length:', audioData.length);
+    console.log('Decoded buffer size:', audioBuffer.length);
+
+    // Build query string for Deepgram configuration
+    const queryParams = new URLSearchParams({
+      model: deepgramConfig.model,
+      language: deepgramConfig.language,
+      encoding: deepgramConfig.encoding,
+      sample_rate: deepgramConfig.sample_rate,
+      punctuate: deepgramConfig.punctuate.toString(),
+      smart_format: deepgramConfig.smart_format.toString(),
+      numerals: deepgramConfig.numerals.toString(),
+      interim_results: deepgramConfig.interim_results.toString(),
+      endpointing: deepgramConfig.endpointing.toString()
+    });
+
+    const deepgramUrlWithParams = `${deepgramUrl}?${queryParams.toString()}`;
+    console.log('Deepgram URL with params:', deepgramUrlWithParams);
+
+    const response = await fetch(deepgramUrlWithParams, {
       method: 'POST',
       headers: {
         'Authorization': `Token ${deepgramApiKey}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'audio/webm', // Send as audio content type
       },
-      body: JSON.stringify({
-        ...deepgramConfig,
-        buffer: audioData
-      })
+      body: audioBuffer // Send the raw audio buffer, not JSON
     });
 
     console.log('Deepgram response status:', response.status);
