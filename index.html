@@ -479,7 +479,8 @@
 
                     // Create WebSocket connection to Deepgram's live streaming endpoint
                     // Based on Deepgram documentation: wss://api.deepgram.com/v1/listen
-                    const wsUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=en-US&smart_format=true&punctuate=true&numerals=true&interim_results=true&endpointing=200&encoding=webm&sample_rate=48000&channels=1`;
+                    // Include API key in the URL for authorization
+                    const wsUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=en-US&smart_format=true&punctuate=true&numerals=true&interim_results=true&endpointing=200&encoding=webm&sample_rate=48000&channels=1&key=${apiKey}`;
                     console.log('WebSocket URL:', wsUrl);
                     
                     // Create WebSocket connection
@@ -494,9 +495,6 @@
                         console.log('Deepgram WebSocket connected!');
                         this.state.isConnected = true;
                         this.showStreamingFeedback('🟢 Connected to Deepgram');
-                        
-                        // Send authorization message after connection
-                        this.sendAuthorization();
                     };
                     
                     this.state.deepgramSocket.onmessage = (event) => {
@@ -567,17 +565,7 @@
                 }
             }
             
-            sendAuthorization() {
-                // Send authorization message to Deepgram
-                if (this.state.deepgramSocket && this.state.deepgramApiKey) {
-                    const authMessage = {
-                        type: 'Authorization',
-                        authorization: this.state.deepgramApiKey
-                    };
-                    console.log('Sending authorization message');
-                    this.state.deepgramSocket.send(JSON.stringify(authMessage));
-                }
-            }
+
 
             async getDeepgramApiKey() {
                 try {
