@@ -21,11 +21,11 @@ npm install
 2. Create a new API key
 3. Copy the key (you'll need it for step 4)
 
-### 2.5. Get Google Cloud Speech-to-Text API Key (Optional but Recommended)
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Enable the "Cloud Speech-to-Text API"
-3. Create a service account and download the JSON credentials
-4. Or use the same API key from step 2 (if it has Speech-to-Text permissions)
+### 2.5. Get Deepgram Speech-to-Text API Key (Recommended)
+1. Go to [Deepgram Console](https://console.deepgram.com/)
+2. Sign up for a free account (includes 200 hours/month)
+3. Create a new API key
+4. Copy the key (you'll need it for step 4)
 
 ### 3. Deploy to Netlify
 1. Push your code to GitHub
@@ -38,8 +38,8 @@ npm install
 3. Add the following variables:
    - **Key**: `GOOGLE_AI_API_KEY`
    - **Value**: Your Google AI API key from step 2
-   - **Key**: `GOOGLE_CREDENTIALS` (optional, for better Speech-to-Text)
-   - **Value**: Your Google Cloud service account JSON (if using service account)
+   - **Key**: `DEEPGRAM_API_KEY`
+   - **Value**: Your Deepgram API key from step 2.5
 
 ### 5. Test the Application
 1. Visit your deployed Netlify site
@@ -53,6 +53,8 @@ Frontend (Netlify)
     ↓ (secure API call)
 Netlify Function (Serverless)
     ↓ (with API key)
+Deepgram Speech-to-Text API
+    ↓ (transcript)
 Google AI API (Gemini Pro)
     ↓ (structured response)
 Frontend (Display results)
@@ -66,6 +68,7 @@ npm install -g netlify-cli
 
 # Set up environment variables locally
 echo "GOOGLE_AI_API_KEY=your_api_key_here" > .env
+echo "DEEPGRAM_API_KEY=your_deepgram_key_here" >> .env
 
 # Run locally
 netlify dev
@@ -95,7 +98,7 @@ netlify dev
 
 - **Netlify Functions**: Free tier includes 125,000 requests/month
 - **Google AI API**: Free tier includes 15 requests/minute, then pay per use
-- **Google Speech-to-Text API**: Free tier includes 60 minutes/month, then $0.006 per 15 seconds
+- **Deepgram Speech-to-Text API**: Free tier includes 200 hours/month, then $0.0044 per hour
 - **No hidden costs** - you control all API usage
 
 ## 🚨 Important Notes

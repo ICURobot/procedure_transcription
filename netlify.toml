@@ -18,3 +18,9 @@
   from = "/api/speech-to-text-live"
   to = "/.netlify/functions/speech-to-text-live"
   status = 200
+
+# Specific redirect for get-deepgram-key
+[[redirects]]
+  from = "/api/get-deepgram-key"
+  to = "/.netlify/functions/get-deepgram-key"
+  status = 200
