@@ -1,7 +1,4 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-// Initialize Google AI with your API key from environment variables
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+// Using REST API directly instead of client library
 
 exports.handler = async (event, context) => {
   // Enable CORS
@@ -35,16 +32,29 @@ exports.handler = async (event, context) => {
     // Create the prompt for medical documentation
     const prompt = createMedicalPrompt(transcript, procedure, timezone);
 
-    // Call Google AI API
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    
-    const result = await model.generateContent([
-      "You are a medical documentation specialist. Create structured medical documentation from dictation transcripts.",
-      prompt
-    ]);
-    
-    const response = result.response.text();
-    const parsedResponse = parseAIResponse(response, procedure);
+                // Call Google AI API using REST API
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${process.env.GOOGLE_AI_API_KEY}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{
+                    text: "You are a medical documentation specialist. Create structured medical documentation from dictation transcripts.\n\n" + prompt
+                  }]
+                }]
+              })
+            });
+
+            if (!response.ok) {
+              const errorData = await response.text();
+              throw new Error(`Generative AI API error: ${response.status} - ${errorData}`);
+            }
+
+            const result = await response.json();
+            const responseText = result.candidates[0].content.parts[0].text;
+                const parsedResponse = parseAIResponse(responseText, procedure);
 
     return {
       statusCode: 200,
