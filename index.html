@@ -510,11 +510,11 @@
                 
                 console.log('Processing audio chunk, size:', audioBlob.size, 'bytes');
                 
-                // Skip chunks that are too large (over 50KB for streaming)
-                if (audioBlob.size > 50 * 1024) {
-                    console.log('Audio chunk too large, skipping:', audioBlob.size, 'bytes');
-                    return;
-                }
+                                    // Skip chunks that are too large (over 100KB for streaming)
+                    if (audioBlob.size > 100 * 1024) {
+                        console.log('Audio chunk too large, skipping:', audioBlob.size, 'bytes');
+                        return;
+                    }
                 
                 try {
                     const base64Audio = await this.blobToBase64(audioBlob);
@@ -705,7 +705,7 @@
 
                 if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'inactive') {
                     console.log('Starting MediaRecorder for streaming...');
-                    this.state.mediaRecorder.start(300); // Record in 0.3-second chunks for real-time streaming
+                    this.state.mediaRecorder.start(1000); // Record in 1-second chunks for better speech recognition
                     console.log('MediaRecorder started');
                 }
             }
