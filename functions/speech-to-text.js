@@ -115,6 +115,14 @@ exports.handler = async (event, context) => {
     const deepgramUrlWithParams = `${deepgramUrl}?${queryParams.toString()}`;
     console.log('Deepgram URL with params:', deepgramUrlWithParams);
 
+    console.log('Making request to Deepgram API...');
+    console.log('Request URL:', deepgramUrlWithParams);
+    console.log('Request headers:', {
+      'Authorization': `Token ${deepgramApiKey.substring(0, 10)}...`,
+      'Content-Type': 'application/json'
+    });
+    console.log('Request body size:', JSON.stringify(requestBody).length, 'bytes');
+
     const response = await fetch(deepgramUrlWithParams, {
       method: 'POST',
       headers: {
@@ -125,10 +133,12 @@ exports.handler = async (event, context) => {
     });
 
     console.log('Deepgram response status:', response.status);
+    console.log('Deepgram response headers:', Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Deepgram API error:', errorData);
+      console.error('Deepgram API error response:', errorData);
+      console.error('Deepgram API error status:', response.status);
       throw new Error(`Deepgram API error: ${response.status} - ${errorData}`);
     }
 
