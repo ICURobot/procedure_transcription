@@ -592,51 +592,33 @@
                 
                 console.log('Processing audio chunk, size:', audioBlob.size, 'bytes');
                 
-                                    // Skip chunks that are too large (over 100KB for streaming)
-                    if (audioBlob.size > 100 * 1024) {
-                        console.log('Audio chunk too large, skipping:', audioBlob.size, 'bytes');
-                        return;
-                    }
+                // Skip chunks that are too large (over 100KB for streaming)
+                if (audioBlob.size > 100 * 1024) {
+                    console.log('Audio chunk too large, skipping:', audioBlob.size, 'bytes');
+                    return;
+                }
                 
                 try {
-                    const base64Audio = await this.blobToBase64(audioBlob);
-                    console.log('Sending audio chunk to speech-to-text API...');
-                    
-                    const response = await fetch('/api/speech-to-text-live', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            audioData: base64Audio,
-                            encoding: 'webm',
-                            sampleRateHertz: 48000, // Higher sample rate for better quality with Deepgram
-                            languageCode: 'en-US'
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    console.log('Stream response:', result);
-                    
-                    if (result.transcript && result.transcript.trim()) {
-                        const timestamp = new Date();
-                        const logEntry = { 
-                            time: timestamp, 
-                            note: result.transcript.charAt(0).toUpperCase() + result.transcript.slice(1),
-                            confidence: result.confidence
-                        };
-                        this.state.transcriptionLog.push(logEntry);
-                        this.updateTranscriptionDisplay();
+                    // Send audio chunk through WebSocket if connected
+                    if (this.state.deepgramSocket && this.state.isConnected) {
+                        console.log('Sending audio chunk to Deepgram WebSocket, size:', audioBlob.size, 'bytes');
                         
-                        // Show real-time feedback
-                        this.showStreamingFeedback(result.transcript);
+                        // Convert blob to array buffer and send
+                        const arrayBuffer = await audioBlob.arrayBuffer();
+                        this.state.deepgramSocket.send(arrayBuffer);
+                        
+                        // Show streaming feedback
+                        this.showStreamingFeedback('🔄 Processing...');
+                    } else {
+                        console.log('Deepgram WebSocket not connected, skipping audio chunk');
+                        // Fallback: try to connect WebSocket
+                        if (!this.state.deepgramSocket) {
+                            await this.setupDeepgramWebSocket();
+                        }
                     }
                     
                 } catch (error) {
-                    console.error('Error processing audio chunk:', error);
-                    // Don't show error for individual chunks, just log it
+                    console.error('Error sending audio chunk to Deepgram:', error);
                 }
             }
             
