@@ -467,8 +467,11 @@
 
             async setupDeepgramWebSocket() {
                 try {
+                    console.log('Setting up Deepgram WebSocket...');
+                    
                     // Get API key from environment (you'll need to set this in your deployment)
                     const apiKey = await this.getDeepgramApiKey();
+                    console.log('API key received:', apiKey ? 'Yes' : 'No');
                     
                     if (!apiKey) {
                         throw new Error('Deepgram API key not available');
@@ -476,8 +479,10 @@
 
                     // Create WebSocket connection to Deepgram
                     const wsUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&language=en-US&smart_format=true&punctuate=true&numerals=true&interim_results=true&endpointing=200`;
+                    console.log('WebSocket URL:', wsUrl);
                     
                     this.state.deepgramSocket = new WebSocket(wsUrl);
+                    console.log('WebSocket object created');
                     
                     this.state.deepgramSocket.onopen = () => {
                         console.log('Deepgram WebSocket connected!');
@@ -520,14 +525,22 @@
                         this.showError('Deepgram connection error');
                     };
                     
-                    this.state.deepgramSocket.onclose = () => {
-                        console.log('Deepgram WebSocket closed');
+                    this.state.deepgramSocket.onclose = (event) => {
+                        console.log('Deepgram WebSocket closed:', event.code, event.reason);
                         this.state.isConnected = false;
                     };
                     
+                    // Add connection timeout
+                    setTimeout(() => {
+                        if (!this.state.isConnected) {
+                            console.error('WebSocket connection timeout');
+                            this.showError('WebSocket connection timeout');
+                        }
+                    }, 10000); // 10 second timeout
+                    
                 } catch (error) {
                     console.error('Error setting up Deepgram WebSocket:', error);
-                    this.showError('Could not connect to Deepgram');
+                    this.showError('Could not connect to Deepgram: ' + error.message);
                 }
             }
 
