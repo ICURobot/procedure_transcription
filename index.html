@@ -755,20 +755,25 @@
                 const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
                 try {
+                    const requestData = { transcript, procedure, timezone: userTimezone };
+                    console.log('Sending to process-transcript:', requestData);
                     const response = await fetch(this.constants.FUNCTION_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ transcript, procedure, timezone: userTimezone })
+                        body: JSON.stringify(requestData)
                     });
 
                     let result;
                     try {
                         result = await response.json();
+                        console.log('Process-transcript response:', result);
                     } catch (jsonErr) {
+                        console.error('JSON parse error:', jsonErr);
                         throw new Error('Could not parse server response. The server may be down or returned invalid data.');
                     }
 
                     if (!response.ok) {
+                        console.error('Process-transcript error:', result);
                         throw new Error(`Function request failed: ${result.error || response.statusText}`);
                     }
                     return result;
