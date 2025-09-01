@@ -507,6 +507,8 @@
                 
                 try {
                     const base64Audio = await this.blobToBase64(audioBlob);
+                    console.log('Audio blob size:', audioBlob.size, 'bytes');
+                    console.log('Base64 audio length:', base64Audio.length);
                     console.log('Sending audio to speech-to-text API...');
                     const response = await fetch('/api/speech-to-text', {
                         method: 'POST',
@@ -675,7 +677,7 @@
 
                 if (this.state.mediaRecorder && this.state.mediaRecorder.state === 'inactive') {
                     console.log('Starting MediaRecorder...');
-                    this.state.mediaRecorder.start(3000); // Record in 3-second chunks
+                    this.state.mediaRecorder.start(1000); // Record in 1-second chunks to reduce size
                     console.log('MediaRecorder started');
                 }
             }
